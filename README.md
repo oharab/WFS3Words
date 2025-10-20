@@ -10,6 +10,7 @@ WFS3Words acts as a bridge between the What3Words geocoding service and GIS syst
 
 - **OGC WFS Compliant:** Supports WFS 1.0.0, 2.0.0, and WFS 3.0 (OGC API - Features)
 - **What3Words Integration:** Converts geographic coordinates to 3-word addresses
+- **Multiple Coordinate Systems:** Supports coordinate transformations to 8 different CRS including Web Mercator, British National Grid, and UTM zones
 - **Cross-platform Development:** Built with .NET 8.0, develop on Linux/Mac/Windows
 - **IIS Ready:** Optimized for deployment to IIS on Windows Server
 - **Standards-based:** Fully compliant with OGC WFS specifications
@@ -125,6 +126,25 @@ GET /wfs?service=WFS&request=DescribeFeatureType&typeName=w3w:location
 Retrieves What3Words locations for a bounding box.
 ```
 GET /wfs?service=WFS&request=GetFeature&typeName=w3w:location&BBOX=minx,miny,maxx,maxy
+```
+
+**Optional Parameters:**
+- `srsName` or `srs`: Target coordinate reference system (e.g., `EPSG:3857`)
+- `outputFormat`: Output format (`application/gml+xml` or `application/json`)
+
+**Supported Coordinate Systems:**
+- `EPSG:4326` - WGS84 (default)
+- `EPSG:3857` - Web Mercator (Google Maps, OpenStreetMap)
+- `EPSG:4258` - ETRS89 (European standard)
+- `EPSG:27700` - British National Grid (UK)
+- `EPSG:32630` - WGS 84 / UTM zone 30N (UK, Western Europe)
+- `EPSG:32631` - WGS 84 / UTM zone 31N (Central Europe)
+- `EPSG:2154` - RGF93 / Lambert-93 (France)
+- `EPSG:25832` - ETRS89 / UTM zone 32N (Germany, Poland)
+
+**Example with coordinate transformation:**
+```
+GET /wfs?service=WFS&request=GetFeature&typeName=w3w:location&BBOX=-1,51,0,52&srsName=EPSG:3857
 ```
 
 ## License

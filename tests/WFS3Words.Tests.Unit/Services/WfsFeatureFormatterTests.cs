@@ -11,7 +11,8 @@ public class WfsFeatureFormatterTests
 
     public WfsFeatureFormatterTests()
     {
-        _formatter = new WfsFeatureFormatter();
+        var transformationService = new CoordinateTransformationService();
+        _formatter = new WfsFeatureFormatter(transformationService);
 
         var coordinate = new GeoCoordinate(51.520847, -0.195521);
         var square = new BoundingBox(51.520833, -0.195543, 51.520861, -0.195499);

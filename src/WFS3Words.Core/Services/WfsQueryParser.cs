@@ -32,7 +32,9 @@ public class WfsQueryParser
             BBox = ParseBoundingBox(GetValue(caseInsensitiveParams, "bbox")),
             MaxFeatures = ParseInt(GetValue(caseInsensitiveParams, "maxfeatures") ??
                                   GetValue(caseInsensitiveParams, "count")),
-            OutputFormat = GetValue(caseInsensitiveParams, "outputformat")
+            OutputFormat = GetValue(caseInsensitiveParams, "outputformat"),
+            SrsName = GetValue(caseInsensitiveParams, "srsname") ??
+                     GetValue(caseInsensitiveParams, "srs")
         };
     }
 

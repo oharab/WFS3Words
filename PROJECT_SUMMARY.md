@@ -8,10 +8,10 @@ A fully functional ASP.NET Core 8.0 web service that exposes the What3Words API 
 
 ### Code Metrics
 - **Total Files Created:** 35+
-- **Lines of Code:** ~3,500+
-- **Test Coverage:** 108 tests (97 unit + 11 integration)
+- **Lines of Code:** ~4,000+
+- **Test Coverage:** 129 tests (129 unit + 10 integration)
 - **Pass Rate:** 100%
-- **Git Commits:** 6 (all with conventional commit format)
+- **Git Commits:** 6+ (all with conventional commit format)
 
 ### Project Structure
 ```
@@ -58,9 +58,10 @@ WFS3Words/
 ### Services
 - ✅ What3WordsClient (HTTP client with retry logic)
 - ✅ CoordinateGridService (grid generation)
-- ✅ WfsCapabilitiesFormatter (GetCapabilities XML)
-- ✅ WfsFeatureFormatter (GML & GeoJSON)
-- ✅ WfsQueryParser (case-insensitive)
+- ✅ CoordinateTransformationService (8 supported CRS)
+- ✅ WfsCapabilitiesFormatter (GetCapabilities XML with CRS support)
+- ✅ WfsFeatureFormatter (GML & GeoJSON with coordinate transformations)
+- ✅ WfsQueryParser (case-insensitive, SrsName support)
 
 ### WFS Operations Supported
 - ✅ **GetCapabilities** - Service metadata (WFS 1.0, 1.1, 2.0)
@@ -72,6 +73,19 @@ WFS3Words/
 - ✅ GeoJSON - Modern JSON format
 - ✅ Automatic format detection from OutputFormat parameter
 
+### Coordinate Reference Systems
+- ✅ **8 Supported CRS** via ProjNet library
+- ✅ **EPSG:4326** - WGS84 (default)
+- ✅ **EPSG:3857** - Web Mercator (Google Maps, OpenStreetMap)
+- ✅ **EPSG:4258** - ETRS89 (European standard)
+- ✅ **EPSG:27700** - British National Grid (UK)
+- ✅ **EPSG:32630/32631** - WGS 84 / UTM zones 30N & 31N
+- ✅ **EPSG:2154** - RGF93 / Lambert-93 (France)
+- ✅ **EPSG:25832** - ETRS89 / UTM zone 32N (Germany, Poland)
+- ✅ Coordinate transformations on-the-fly for all output formats
+- ✅ SrsName/SRS parameter support in WFS requests
+- ✅ CRS list advertised in GetCapabilities
+
 ### API Endpoints
 ```
 GET  /                      → Redirect to /health
@@ -82,12 +96,13 @@ GET  /swagger              → API documentation (dev only)
 
 ## 🧪 Testing
 
-### Unit Tests (97)
+### Unit Tests (129)
 - Domain Models: 40 tests
 - What3Words Client: 7 tests
 - Coordinate Grid: 13 tests
+- Coordinate Transformation: 27 tests
 - WFS Formatters: 22 tests
-- Query Parser: 15 tests
+- Query Parser: 20 tests
 
 ### Integration Tests (11)
 - GetCapabilities (multiple versions)

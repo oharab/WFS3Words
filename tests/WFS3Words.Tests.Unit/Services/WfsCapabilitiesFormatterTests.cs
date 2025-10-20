@@ -23,7 +23,8 @@ public class WfsCapabilitiesFormatterTests
             ContactEmail = "test@example.com"
         };
 
-        _formatter = new WfsCapabilitiesFormatter(Options.Create(_options));
+        var transformationService = new CoordinateTransformationService();
+        _formatter = new WfsCapabilitiesFormatter(Options.Create(_options), transformationService);
     }
 
     [Fact]

@@ -17,6 +17,7 @@ builder.Services.AddControllers();
 // Register services
 builder.Services.AddHttpClient<IWhat3WordsClient, What3WordsClient>();
 builder.Services.AddSingleton<ICoordinateGridService, CoordinateGridService>();
+builder.Services.AddSingleton<ICoordinateTransformationService, CoordinateTransformationService>();
 builder.Services.AddSingleton<IWfsCapabilitiesFormatter, WfsCapabilitiesFormatter>();
 builder.Services.AddSingleton<IWfsFeatureFormatter, WfsFeatureFormatter>();
 builder.Services.AddSingleton<WfsQueryParser>();

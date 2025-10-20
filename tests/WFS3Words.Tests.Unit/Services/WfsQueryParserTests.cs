@@ -231,4 +231,46 @@ public class WfsQueryParserTests
         Assert.Null(result.Service);
         Assert.Null(result.Version);
     }
+
+    [Fact]
+    public void Parse_ShouldExtractSrsName_WhenProvided()
+    {
+        var queryParams = new Dictionary<string, StringValues>
+        {
+            ["srsname"] = "EPSG:3857"
+        };
+
+        var result = _parser.Parse(queryParams);
+
+        Assert.Equal("EPSG:3857", result.SrsName);
+    }
+
+    [Fact]
+    public void Parse_ShouldExtractSrs_WhenSrsNameNotProvided()
+    {
+        var queryParams = new Dictionary<string, StringValues>
+        {
+            ["srs"] = "EPSG:27700"
+        };
+
+        var result = _parser.Parse(queryParams);
+
+        Assert.Equal("EPSG:27700", result.SrsName);
+    }
+
+    [Theory]
+    [InlineData("EPSG:3857")]
+    [InlineData("epsg:3857")]
+    [InlineData("EPSG:27700")]
+    public void Parse_ShouldHandleSrsNameCaseInsensitive(string srsValue)
+    {
+        var queryParams = new Dictionary<string, StringValues>
+        {
+            ["SRSNAME"] = srsValue
+        };
+
+        var result = _parser.Parse(queryParams);
+
+        Assert.Equal(srsValue, result.SrsName);
+    }
 }

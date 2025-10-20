@@ -12,10 +12,12 @@ namespace WFS3Words.Core.Services;
 public class WfsCapabilitiesFormatter : IWfsCapabilitiesFormatter
 {
     private readonly WfsOptions _options;
+    private readonly ICoordinateTransformationService _transformationService;
 
-    public WfsCapabilitiesFormatter(IOptions<WfsOptions> options)
+    public WfsCapabilitiesFormatter(IOptions<WfsOptions> options, ICoordinateTransformationService transformationService)
     {
         _options = options.Value;
+        _transformationService = transformationService;
     }
 
     /// <inheritdoc />
@@ -177,6 +179,15 @@ public class WfsCapabilitiesFormatter : IWfsCapabilitiesFormatter
         writer.WriteElementString("Title", "What3Words Location");
         writer.WriteElementString("Abstract", "Geographic location with What3Words 3-word address");
         writer.WriteElementString("DefaultSRS", "EPSG:4326");
+
+        // List all supported CRS
+        foreach (var srs in _transformationService.SupportedEpsgCodes)
+        {
+            if (srs != "EPSG:4326") // Already listed as DefaultSRS
+            {
+                writer.WriteElementString("OtherSRS", srs);
+            }
+        }
 
         // Bounding box - global coverage
         writer.WriteStartElement("WGS84BoundingBox");

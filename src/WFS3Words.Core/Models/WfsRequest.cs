@@ -39,4 +39,12 @@ public record WfsRequest
     /// Output format (GML, GeoJSON, etc.)
     /// </summary>
     public string? OutputFormat { get; init; }
+
+    /// <summary>
+    /// Coordinate Reference System for the output features.
+    /// WFS 1.x uses 'srsName' or 'srs' parameter.
+    /// WFS 2.0+ uses 'srsName' parameter.
+    /// Defaults to EPSG:4326 if not specified.
+    /// </summary>
+    public string? SrsName { get; init; }
 }

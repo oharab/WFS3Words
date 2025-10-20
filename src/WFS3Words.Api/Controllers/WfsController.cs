@@ -147,13 +147,13 @@ public class WfsController : ControllerBase
             var outputFormat = request.OutputFormat?.ToLowerInvariant();
             if (outputFormat?.Contains("json") == true || outputFormat?.Contains("geojson") == true)
             {
-                var json = _featureFormatter.FormatAsGeoJson(collection);
+                var json = _featureFormatter.FormatAsGeoJson(collection, request.SrsName);
                 return Content(json, "application/geo+json");
             }
             else
             {
                 var version = request.Version ?? "2.0.0";
-                var xml = _featureFormatter.FormatAsGml(collection, version);
+                var xml = _featureFormatter.FormatAsGml(collection, version, request.SrsName);
                 return Content(xml, "application/gml+xml");
             }
         }

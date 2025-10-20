@@ -12,15 +12,17 @@ public interface IWfsFeatureFormatter
     /// </summary>
     /// <param name="collection">The feature collection to format</param>
     /// <param name="version">WFS version</param>
+    /// <param name="srsName">Target coordinate reference system (e.g., EPSG:3857)</param>
     /// <returns>GML XML document as string</returns>
-    string FormatAsGml(WfsFeatureCollection collection, string version = "2.0.0");
+    string FormatAsGml(WfsFeatureCollection collection, string version = "2.0.0", string? srsName = null);
 
     /// <summary>
     /// Generates a GeoJSON response for a feature collection (WFS 3.0).
     /// </summary>
     /// <param name="collection">The feature collection to format</param>
+    /// <param name="srsName">Target coordinate reference system (e.g., EPSG:3857)</param>
     /// <returns>GeoJSON document as string</returns>
-    string FormatAsGeoJson(WfsFeatureCollection collection);
+    string FormatAsGeoJson(WfsFeatureCollection collection, string? srsName = null);
 
     /// <summary>
     /// Generates a DescribeFeatureType XML response.
