@@ -203,4 +203,68 @@ public class WfsCapabilitiesFormatterTests
         Assert.Contains("<ResultFormat>", result);
         Assert.Contains("<GML3", result);
     }
+
+    [Fact]
+    public void GenerateCapabilities_ShouldUseSrsElement_ForWfs10()
+    {
+        var serviceUrl = "http://localhost/wfs";
+        var version = "1.0.0";
+
+        var result = _formatter.GenerateCapabilities(version, serviceUrl);
+
+        // WFS 1.0.0 should use <SRS> element instead of <DefaultSRS>
+        Assert.Contains("<SRS>EPSG:4326</SRS>", result);
+        Assert.DoesNotContain("<DefaultSRS>", result);
+        Assert.DoesNotContain("<OtherSRS>", result);
+    }
+
+    [Fact]
+    public void GenerateCapabilities_ShouldUseLatLongBoundingBox_ForWfs10()
+    {
+        var serviceUrl = "http://localhost/wfs";
+        var version = "1.0.0";
+
+        var result = _formatter.GenerateCapabilities(version, serviceUrl);
+
+        // WFS 1.0.0 should use <LatLongBoundingBox> with attributes
+        Assert.Contains("<LatLongBoundingBox", result);
+        Assert.Contains("minx=\"-180\"", result);
+        Assert.Contains("miny=\"-90\"", result);
+        Assert.Contains("maxx=\"180\"", result);
+        Assert.Contains("maxy=\"90\"", result);
+        Assert.DoesNotContain("<WGS84BoundingBox>", result);
+        Assert.DoesNotContain("<LowerCorner>", result);
+        Assert.DoesNotContain("<UpperCorner>", result);
+    }
+
+    [Fact]
+    public void GenerateCapabilities_ShouldUseDefaultSrsAndOtherSrs_ForWfs20()
+    {
+        var serviceUrl = "http://localhost/wfs";
+        var version = "2.0.0";
+
+        var result = _formatter.GenerateCapabilities(version, serviceUrl);
+
+        // WFS 2.0.0 should use <DefaultSRS> and <OtherSRS>
+        Assert.Contains("<DefaultSRS>EPSG:4326</DefaultSRS>", result);
+        Assert.Contains("<OtherSRS>", result);
+        // Should NOT contain the WFS 1.0.0 format
+        Assert.DoesNotContain("<SRS>EPSG:4326</SRS>", result);
+    }
+
+    [Fact]
+    public void GenerateCapabilities_ShouldUseWgs84BoundingBox_ForWfs20()
+    {
+        var serviceUrl = "http://localhost/wfs";
+        var version = "2.0.0";
+
+        var result = _formatter.GenerateCapabilities(version, serviceUrl);
+
+        // WFS 2.0.0 should use <WGS84BoundingBox> with child elements
+        Assert.Contains("<WGS84BoundingBox>", result);
+        Assert.Contains("<LowerCorner>-180 -90</LowerCorner>", result);
+        Assert.Contains("<UpperCorner>180 90</UpperCorner>", result);
+        // Should NOT contain the WFS 1.0.0 format
+        Assert.DoesNotContain("<LatLongBoundingBox", result);
+    }
 }

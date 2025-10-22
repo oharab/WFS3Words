@@ -57,7 +57,7 @@ public class WfsCapabilitiesFormatter : IWfsCapabilitiesFormatter
         WriteOperationsMetadata(writer, serviceUrl, version);
 
         // Feature Type List
-        WriteFeatureTypeList(writer);
+        WriteFeatureTypeList(writer, version);
 
         writer.WriteEndElement(); // WFS_Capabilities
         writer.WriteEndDocument();
@@ -191,7 +191,7 @@ public class WfsCapabilitiesFormatter : IWfsCapabilitiesFormatter
         writer.WriteEndElement(); // Operation
     }
 
-    private void WriteFeatureTypeList(XmlWriter writer)
+    private void WriteFeatureTypeList(XmlWriter writer, string version)
     {
         writer.WriteStartElement("FeatureTypeList");
         writer.WriteStartElement("Operations");
@@ -203,22 +203,47 @@ public class WfsCapabilitiesFormatter : IWfsCapabilitiesFormatter
         writer.WriteElementString("Name", "w3w:location");
         writer.WriteElementString("Title", "What3Words Location");
         writer.WriteElementString("Abstract", "Geographic location with What3Words 3-word address");
-        writer.WriteElementString("DefaultSRS", "EPSG:4326");
 
-        // List all supported CRS
-        foreach (var srs in _transformationService.SupportedEpsgCodes)
+        // WFS 1.0.0 uses <SRS>, WFS 2.0.0+ uses <DefaultSRS> and <OtherSRS>
+        if (version == "1.0.0")
         {
-            if (srs != "EPSG:4326") // Already listed as DefaultSRS
+            // WFS 1.0.0: Use single <SRS> element
+            writer.WriteElementString("SRS", "EPSG:4326");
+        }
+        else
+        {
+            // WFS 2.0.0+: Use <DefaultSRS> and <OtherSRS>
+            writer.WriteElementString("DefaultSRS", "EPSG:4326");
+
+            // List all supported CRS
+            foreach (var srs in _transformationService.SupportedEpsgCodes)
             {
-                writer.WriteElementString("OtherSRS", srs);
+                if (srs != "EPSG:4326") // Already listed as DefaultSRS
+                {
+                    writer.WriteElementString("OtherSRS", srs);
+                }
             }
         }
 
-        // Bounding box - global coverage
-        writer.WriteStartElement("WGS84BoundingBox");
-        writer.WriteElementString("LowerCorner", "-180 -90");
-        writer.WriteElementString("UpperCorner", "180 90");
-        writer.WriteEndElement(); // WGS84BoundingBox
+        // WFS 1.0.0 uses <LatLongBoundingBox>, WFS 2.0.0+ uses <WGS84BoundingBox>
+        if (version == "1.0.0")
+        {
+            // WFS 1.0.0: Use <LatLongBoundingBox> with attributes
+            writer.WriteStartElement("LatLongBoundingBox");
+            writer.WriteAttributeString("minx", "-180");
+            writer.WriteAttributeString("miny", "-90");
+            writer.WriteAttributeString("maxx", "180");
+            writer.WriteAttributeString("maxy", "90");
+            writer.WriteEndElement(); // LatLongBoundingBox
+        }
+        else
+        {
+            // WFS 2.0.0+: Use <WGS84BoundingBox> with child elements
+            writer.WriteStartElement("WGS84BoundingBox");
+            writer.WriteElementString("LowerCorner", "-180 -90");
+            writer.WriteElementString("UpperCorner", "180 90");
+            writer.WriteEndElement(); // WGS84BoundingBox
+        }
 
         writer.WriteEndElement(); // FeatureType
         writer.WriteEndElement(); // FeatureTypeList
