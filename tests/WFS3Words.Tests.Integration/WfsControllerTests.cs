@@ -63,6 +63,42 @@ public class WfsControllerTests : IClassFixture<WebApplicationFactory<Program>>
     }
 
     [Fact]
+    public async Task DescribeFeatureType_ShouldReturnXmlSchema_WhenOutputFormatIsXMLSCHEMA()
+    {
+        var response = await _client.GetAsync("/wfs?service=WFS&request=DescribeFeatureType&version=2.0.0&outputFormat=XMLSCHEMA");
+
+        response.EnsureSuccessStatusCode();
+        Assert.Equal("application/xml", response.Content.Headers.ContentType?.MediaType);
+
+        var content = await response.Content.ReadAsStringAsync();
+        Assert.Contains("schema", content);
+        Assert.Contains("locationType", content);
+    }
+
+    [Fact]
+    public async Task DescribeFeatureType_ShouldReturnXmlSchema_WhenOutputFormatIsTextXml()
+    {
+        var response = await _client.GetAsync("/wfs?service=WFS&request=DescribeFeatureType&version=2.0.0&outputFormat=text/xml;%20subtype=gml/3.1.1");
+
+        response.EnsureSuccessStatusCode();
+        Assert.Equal("application/xml", response.Content.Headers.ContentType?.MediaType);
+
+        var content = await response.Content.ReadAsStringAsync();
+        Assert.Contains("schema", content);
+    }
+
+    [Fact]
+    public async Task DescribeFeatureType_ShouldReturnBadRequest_WhenOutputFormatUnsupported()
+    {
+        var response = await _client.GetAsync("/wfs?service=WFS&request=DescribeFeatureType&version=2.0.0&outputFormat=application/json");
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+
+        var content = await response.Content.ReadAsStringAsync();
+        Assert.Contains("not supported", content);
+    }
+
+    [Fact]
     public async Task GetFeature_ShouldReturnBadRequest_WhenBBoxMissing()
     {
         var response = await _client.GetAsync("/wfs?service=WFS&request=GetFeature&version=2.0.0");

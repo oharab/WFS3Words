@@ -78,6 +78,24 @@ public class WfsController : ControllerBase
     private IActionResult HandleDescribeFeatureType(WfsRequest request)
     {
         var version = request.Version ?? "2.0.0";
+
+        // Validate outputFormat if provided
+        var outputFormat = request.OutputFormat?.ToUpperInvariant();
+        if (!string.IsNullOrEmpty(outputFormat))
+        {
+            // Supported formats: XMLSCHEMA, text/xml variants
+            var supportedFormats = new[] { "XMLSCHEMA", "TEXT/XML", "APPLICATION/XML" };
+            var isSupported = supportedFormats.Any(f => outputFormat.Contains(f));
+
+            if (!isSupported)
+            {
+                return BadRequest(new
+                {
+                    error = $"OutputFormat '{request.OutputFormat}' is not supported. Supported formats: XMLSCHEMA, text/xml; subtype=gml/3.1.1, text/xml; subtype=gml/3.2.0"
+                });
+            }
+        }
+
         var xml = _featureFormatter.GenerateFeatureTypeDescription(version);
 
         return Content(xml, "application/xml");

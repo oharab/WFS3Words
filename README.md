@@ -122,6 +122,19 @@ Describes the structure of feature types.
 GET /wfs?service=WFS&request=DescribeFeatureType&typeName=w3w:location
 ```
 
+**Optional Parameters:**
+- `outputFormat`: Schema description language (default: XMLSCHEMA)
+
+**Supported Output Formats:**
+- `XMLSCHEMA` - XML Schema Definition (default)
+- `text/xml; subtype=gml/3.1.1` - GML 3.1.1 Schema
+- `text/xml; subtype=gml/3.2.0` - GML 3.2.0 Schema
+
+**Example with outputFormat:**
+```
+GET /wfs?service=WFS&request=DescribeFeatureType&typeName=w3w:location&outputFormat=XMLSCHEMA
+```
+
 ### GetFeature
 Retrieves What3Words locations for a bounding box.
 ```

@@ -100,6 +100,20 @@ public class WfsCapabilitiesFormatterTests
     }
 
     [Fact]
+    public void GenerateCapabilities_ShouldIncludeDescribeFeatureTypeSupportedFormats()
+    {
+        var serviceUrl = "http://localhost/wfs";
+        var version = "2.0.0";
+
+        var result = _formatter.GenerateCapabilities(version, serviceUrl);
+
+        Assert.Contains("SchemaDescriptionLanguage", result);
+        Assert.Contains("XMLSCHEMA", result);
+        Assert.Contains("text/xml; subtype=gml/3.1.1", result);
+        Assert.Contains("text/xml; subtype=gml/3.2.0", result);
+    }
+
+    [Fact]
     public void GenerateCapabilities_ShouldIncludeKeywords()
     {
         var serviceUrl = "http://localhost/wfs";

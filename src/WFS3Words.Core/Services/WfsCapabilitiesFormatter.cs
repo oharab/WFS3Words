@@ -135,21 +135,32 @@ public class WfsCapabilitiesFormatter : IWfsCapabilitiesFormatter
         writer.WriteStartElement("Request");
 
         // GetCapabilities
-        WriteOperation(writer, "GetCapabilities", serviceUrl);
+        WriteOperation(writer, "GetCapabilities", serviceUrl, null);
 
-        // DescribeFeatureType
-        WriteOperation(writer, "DescribeFeatureType", serviceUrl);
+        // DescribeFeatureType - include supported output formats
+        var describeFormats = new[] { "XMLSCHEMA", "text/xml; subtype=gml/3.1.1", "text/xml; subtype=gml/3.2.0" };
+        WriteOperation(writer, "DescribeFeatureType", serviceUrl, describeFormats);
 
         // GetFeature
-        WriteOperation(writer, "GetFeature", serviceUrl);
+        WriteOperation(writer, "GetFeature", serviceUrl, null);
 
         writer.WriteEndElement(); // Request
         writer.WriteEndElement(); // Capability
     }
 
-    private void WriteOperation(XmlWriter writer, string operationName, string serviceUrl)
+    private void WriteOperation(XmlWriter writer, string operationName, string serviceUrl, string[]? resultFormats)
     {
         writer.WriteStartElement(operationName);
+
+        // Write supported result formats (for DescribeFeatureType)
+        if (resultFormats != null && resultFormats.Length > 0)
+        {
+            foreach (var format in resultFormats)
+            {
+                writer.WriteElementString("SchemaDescriptionLanguage", format);
+            }
+        }
+
         writer.WriteStartElement("DCPType");
         writer.WriteStartElement("HTTP");
 
