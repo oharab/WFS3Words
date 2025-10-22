@@ -138,7 +138,7 @@ public class WfsCapabilitiesFormatter : IWfsCapabilitiesFormatter
         WriteOperation(writer, "GetCapabilities", serviceUrl, null);
 
         // DescribeFeatureType - include supported output formats
-        var describeFormats = new[] { "XMLSCHEMA", "text/xml; subtype=gml/3.1.1", "text/xml; subtype=gml/3.2.0" };
+        var describeFormats = new[] { "XMLSCHEMA" };
         WriteOperation(writer, "DescribeFeatureType", serviceUrl, describeFormats);
 
         // GetFeature
@@ -153,12 +153,17 @@ public class WfsCapabilitiesFormatter : IWfsCapabilitiesFormatter
         writer.WriteStartElement(operationName);
 
         // Write supported result formats (for DescribeFeatureType)
+        // Following WFS 2.0 spec: SchemaDescriptionLanguage contains format elements
         if (resultFormats != null && resultFormats.Length > 0)
         {
+            writer.WriteStartElement("SchemaDescriptionLanguage");
             foreach (var format in resultFormats)
             {
-                writer.WriteElementString("SchemaDescriptionLanguage", format);
+                // Write as empty element: <XMLSCHEMA/>
+                writer.WriteStartElement(format);
+                writer.WriteEndElement();
             }
+            writer.WriteEndElement(); // SchemaDescriptionLanguage
         }
 
         writer.WriteStartElement("DCPType");

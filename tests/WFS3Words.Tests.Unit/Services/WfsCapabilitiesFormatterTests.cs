@@ -108,9 +108,7 @@ public class WfsCapabilitiesFormatterTests
         var result = _formatter.GenerateCapabilities(version, serviceUrl);
 
         Assert.Contains("SchemaDescriptionLanguage", result);
-        Assert.Contains("XMLSCHEMA", result);
-        Assert.Contains("text/xml; subtype=gml/3.1.1", result);
-        Assert.Contains("text/xml; subtype=gml/3.2.0", result);
+        Assert.Contains("<XMLSCHEMA", result);  // Element format: <XMLSCHEMA/>
     }
 
     [Fact]
