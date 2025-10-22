@@ -35,8 +35,14 @@ public class WfsCapabilitiesFormatter : IWfsCapabilitiesFormatter
 
         writer.WriteStartDocument();
 
-        // Root element varies by version
-        writer.WriteStartElement("WFS_Capabilities", "http://www.opengis.net/wfs");
+        // Root element namespace varies by version
+        // WFS 1.0.0 and 1.1.0 use http://www.opengis.net/wfs
+        // WFS 2.0.0 uses http://www.opengis.net/wfs/2.0
+        var wfsNamespace = version.StartsWith("2.")
+            ? "http://www.opengis.net/wfs/2.0"
+            : "http://www.opengis.net/wfs";
+
+        writer.WriteStartElement("WFS_Capabilities", wfsNamespace);
         writer.WriteAttributeString("version", version);
         writer.WriteAttributeString("xmlns", "xsi", null, "http://www.w3.org/2001/XMLSchema-instance");
         writer.WriteAttributeString("xmlns", "gml", null, "http://www.opengis.net/gml");

@@ -136,4 +136,43 @@ public class WfsCapabilitiesFormatterTests
         Assert.Contains("Test Person", result);
         Assert.Contains("test@example.com", result);
     }
+
+    [Theory]
+    [InlineData("1.0.0", "http://www.opengis.net/wfs")]
+    [InlineData("1.1.0", "http://www.opengis.net/wfs")]
+    public void GenerateCapabilities_ShouldUseCorrectNamespace_ForWfs1x(string version, string expectedNamespace)
+    {
+        var serviceUrl = "http://localhost/wfs";
+
+        var result = _formatter.GenerateCapabilities(version, serviceUrl);
+
+        Assert.Contains($"xmlns=\"{expectedNamespace}\"", result);
+        Assert.Contains($"version=\"{version}\"", result);
+    }
+
+    [Fact]
+    public void GenerateCapabilities_ShouldUseCorrectNamespace_ForWfs20()
+    {
+        var serviceUrl = "http://localhost/wfs";
+        var version = "2.0.0";
+
+        var result = _formatter.GenerateCapabilities(version, serviceUrl);
+
+        Assert.Contains("xmlns=\"http://www.opengis.net/wfs/2.0\"", result);
+        Assert.Contains("version=\"2.0.0\"", result);
+    }
+
+    [Fact]
+    public void GenerateCapabilities_ShouldNotUseWfs1Namespace_ForWfs20()
+    {
+        var serviceUrl = "http://localhost/wfs";
+        var version = "2.0.0";
+
+        var result = _formatter.GenerateCapabilities(version, serviceUrl);
+
+        // Should NOT contain the WFS 1.x namespace when version is 2.0.0
+        Assert.DoesNotContain("xmlns=\"http://www.opengis.net/wfs\"", result);
+        // Should contain the WFS 2.0 namespace
+        Assert.Contains("xmlns=\"http://www.opengis.net/wfs/2.0\"", result);
+    }
 }
