@@ -54,7 +54,7 @@ public class WfsCapabilitiesFormatter : IWfsCapabilitiesFormatter
         WriteServiceProvider(writer);
 
         // Operations Metadata
-        WriteOperationsMetadata(writer, serviceUrl);
+        WriteOperationsMetadata(writer, serviceUrl, version);
 
         // Feature Type List
         WriteFeatureTypeList(writer);
@@ -135,41 +135,44 @@ public class WfsCapabilitiesFormatter : IWfsCapabilitiesFormatter
         writer.WriteEndElement(); // ServiceProvider
     }
 
-    private void WriteOperationsMetadata(XmlWriter writer, string serviceUrl)
+    private void WriteOperationsMetadata(XmlWriter writer, string serviceUrl, string version)
     {
         writer.WriteStartElement("Capability");
         writer.WriteStartElement("Request");
 
         // GetCapabilities
-        WriteOperation(writer, "GetCapabilities", serviceUrl, null);
+        WriteOperation(writer, "GetCapabilities", serviceUrl, null, null);
 
         // DescribeFeatureType - include supported output formats
         var describeFormats = new[] { "XMLSCHEMA" };
-        WriteOperation(writer, "DescribeFeatureType", serviceUrl, describeFormats);
+        WriteOperation(writer, "DescribeFeatureType", serviceUrl, describeFormats, "SchemaDescriptionLanguage");
 
-        // GetFeature
-        WriteOperation(writer, "GetFeature", serviceUrl, null);
+        // GetFeature - include supported result formats based on version
+        // WFS 1.0.0 requires GML2, WFS 2.0.0 uses GML3
+        var getFeatureFormats = version == "1.0.0" ? new[] { "GML2" } : new[] { "GML3" };
+        WriteOperation(writer, "GetFeature", serviceUrl, getFeatureFormats, "ResultFormat");
 
         writer.WriteEndElement(); // Request
         writer.WriteEndElement(); // Capability
     }
 
-    private void WriteOperation(XmlWriter writer, string operationName, string serviceUrl, string[]? resultFormats)
+    private void WriteOperation(XmlWriter writer, string operationName, string serviceUrl, string[]? formats, string? formatContainerName)
     {
         writer.WriteStartElement(operationName);
 
-        // Write supported result formats (for DescribeFeatureType)
-        // Following WFS 2.0 spec: SchemaDescriptionLanguage contains format elements
-        if (resultFormats != null && resultFormats.Length > 0)
+        // Write supported formats if provided
+        // DescribeFeatureType uses SchemaDescriptionLanguage
+        // GetFeature uses ResultFormat
+        if (formats != null && formats.Length > 0 && !string.IsNullOrEmpty(formatContainerName))
         {
-            writer.WriteStartElement("SchemaDescriptionLanguage");
-            foreach (var format in resultFormats)
+            writer.WriteStartElement(formatContainerName);
+            foreach (var format in formats)
             {
-                // Write as empty element: <XMLSCHEMA/>
+                // Write as empty element: <GML2/>, <GML3/>, <XMLSCHEMA/>, etc.
                 writer.WriteStartElement(format);
                 writer.WriteEndElement();
             }
-            writer.WriteEndElement(); // SchemaDescriptionLanguage
+            writer.WriteEndElement(); // formatContainerName (SchemaDescriptionLanguage or ResultFormat)
         }
 
         writer.WriteStartElement("DCPType");

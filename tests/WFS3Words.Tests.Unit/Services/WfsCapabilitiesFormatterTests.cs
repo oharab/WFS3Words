@@ -175,4 +175,32 @@ public class WfsCapabilitiesFormatterTests
         // Should contain the WFS 2.0 namespace
         Assert.Contains("xmlns=\"http://www.opengis.net/wfs/2.0\"", result);
     }
+
+    [Fact]
+    public void GenerateCapabilities_ShouldIncludeGml2ResultFormat_ForWfs10()
+    {
+        var serviceUrl = "http://localhost/wfs";
+        var version = "1.0.0";
+
+        var result = _formatter.GenerateCapabilities(version, serviceUrl);
+
+        // WFS 1.0.0 GetFeature should advertise GML2 as result format
+        Assert.Contains("<GetFeature>", result);
+        Assert.Contains("<ResultFormat>", result);
+        Assert.Contains("<GML2", result);
+    }
+
+    [Fact]
+    public void GenerateCapabilities_ShouldIncludeGml3ResultFormat_ForWfs20()
+    {
+        var serviceUrl = "http://localhost/wfs";
+        var version = "2.0.0";
+
+        var result = _formatter.GenerateCapabilities(version, serviceUrl);
+
+        // WFS 2.0.0 GetFeature should advertise GML3 as result format
+        Assert.Contains("<GetFeature>", result);
+        Assert.Contains("<ResultFormat>", result);
+        Assert.Contains("<GML3", result);
+    }
 }
