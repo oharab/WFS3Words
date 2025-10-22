@@ -45,7 +45,7 @@ public class WfsCapabilitiesFormatterTests
     public void GenerateCapabilities_ShouldIncludeServiceTitle()
     {
         var serviceUrl = "http://localhost/wfs";
-        var version = "2.0.0";
+        var version = "1.0.0";
 
         var result = _formatter.GenerateCapabilities(version, serviceUrl);
 
@@ -103,7 +103,7 @@ public class WfsCapabilitiesFormatterTests
     public void GenerateCapabilities_ShouldIncludeDescribeFeatureTypeSupportedFormats()
     {
         var serviceUrl = "http://localhost/wfs";
-        var version = "2.0.0";
+        var version = "1.0.0";
 
         var result = _formatter.GenerateCapabilities(version, serviceUrl);
 
@@ -115,7 +115,7 @@ public class WfsCapabilitiesFormatterTests
     public void GenerateCapabilities_ShouldIncludeKeywords()
     {
         var serviceUrl = "http://localhost/wfs";
-        var version = "2.0.0";
+        var version = "1.0.0";
 
         var result = _formatter.GenerateCapabilities(version, serviceUrl);
 
@@ -198,10 +198,8 @@ public class WfsCapabilitiesFormatterTests
 
         var result = _formatter.GenerateCapabilities(version, serviceUrl);
 
-        // WFS 2.0.0 GetFeature should advertise GML3 as result format
-        Assert.Contains("<GetFeature>", result);
-        Assert.Contains("<ResultFormat>", result);
-        Assert.Contains("<GML3", result);
+        // WFS 2.0.0 GetFeature uses ows:Operation structure (format details not in OperationsMetadata for basic WFS)
+        Assert.Contains("<ows:Operation name=\"GetFeature\">", result);
     }
 
     [Fact]
@@ -266,5 +264,141 @@ public class WfsCapabilitiesFormatterTests
         Assert.Contains("<UpperCorner>180 90</UpperCorner>", result);
         // Should NOT contain the WFS 1.0.0 format
         Assert.DoesNotContain("<LatLongBoundingBox", result);
+    }
+
+    [Fact]
+    public void GenerateCapabilities_ShouldDeclareOwsNamespace_ForWfs20()
+    {
+        var serviceUrl = "http://localhost/wfs";
+        var version = "2.0.0";
+
+        var result = _formatter.GenerateCapabilities(version, serviceUrl);
+
+        // WFS 2.0.0 should declare OWS namespace
+        Assert.Contains("xmlns:ows=\"http://www.opengis.net/ows/1.1\"", result);
+    }
+
+    [Fact]
+    public void GenerateCapabilities_ShouldNotDeclareOwsNamespace_ForWfs10()
+    {
+        var serviceUrl = "http://localhost/wfs";
+        var version = "1.0.0";
+
+        var result = _formatter.GenerateCapabilities(version, serviceUrl);
+
+        // WFS 1.0.0 should NOT declare OWS namespace
+        Assert.DoesNotContain("xmlns:ows=", result);
+    }
+
+    [Fact]
+    public void GenerateCapabilities_ShouldUseOwsServiceIdentification_ForWfs20()
+    {
+        var serviceUrl = "http://localhost/wfs";
+        var version = "2.0.0";
+
+        var result = _formatter.GenerateCapabilities(version, serviceUrl);
+
+        // WFS 2.0.0 should use ows:ServiceIdentification
+        Assert.Contains("<ows:ServiceIdentification>", result);
+        Assert.Contains("<ows:Title>", result);
+        Assert.Contains("<ows:Abstract>", result);
+        Assert.Contains("<ows:ServiceType>WFS</ows:ServiceType>", result);
+        Assert.Contains("<ows:ServiceTypeVersion>2.0.0</ows:ServiceTypeVersion>", result);
+        Assert.Contains("</ows:ServiceIdentification>", result);
+        // Should NOT use old Service element
+        Assert.DoesNotContain("<Service>", result);
+    }
+
+    [Fact]
+    public void GenerateCapabilities_ShouldUseServiceElement_ForWfs10()
+    {
+        var serviceUrl = "http://localhost/wfs";
+        var version = "1.0.0";
+
+        var result = _formatter.GenerateCapabilities(version, serviceUrl);
+
+        // WFS 1.0.0 should use <Service> element
+        Assert.Contains("<Service>", result);
+        Assert.Contains("</Service>", result);
+        // Should NOT use OWS elements
+        Assert.DoesNotContain("<ows:ServiceIdentification>", result);
+    }
+
+    [Fact]
+    public void GenerateCapabilities_ShouldUseOwsKeywords_ForWfs20()
+    {
+        var serviceUrl = "http://localhost/wfs";
+        var version = "2.0.0";
+
+        var result = _formatter.GenerateCapabilities(version, serviceUrl);
+
+        // WFS 2.0.0 should use ows:Keywords structure
+        Assert.Contains("<ows:Keywords>", result);
+        Assert.Contains("<ows:Keyword>", result);
+        Assert.Contains("</ows:Keywords>", result);
+    }
+
+    [Fact]
+    public void GenerateCapabilities_ShouldUseOwsServiceProvider_ForWfs20()
+    {
+        var serviceUrl = "http://localhost/wfs";
+        var version = "2.0.0";
+
+        var result = _formatter.GenerateCapabilities(version, serviceUrl);
+
+        // WFS 2.0.0 should use ows:ServiceProvider
+        Assert.Contains("<ows:ServiceProvider>", result);
+        Assert.Contains("<ows:ProviderName>", result);
+        Assert.Contains("</ows:ServiceProvider>", result);
+    }
+
+    [Fact]
+    public void GenerateCapabilities_ShouldUseOwsOperationsMetadata_ForWfs20()
+    {
+        var serviceUrl = "http://localhost/wfs";
+        var version = "2.0.0";
+
+        var result = _formatter.GenerateCapabilities(version, serviceUrl);
+
+        // WFS 2.0.0 should use ows:OperationsMetadata
+        Assert.Contains("<ows:OperationsMetadata>", result);
+        Assert.Contains("<ows:Operation name=\"GetCapabilities\">", result);
+        Assert.Contains("<ows:Operation name=\"DescribeFeatureType\">", result);
+        Assert.Contains("<ows:Operation name=\"GetFeature\">", result);
+        Assert.Contains("</ows:OperationsMetadata>", result);
+        // Should NOT use old Capability/Request structure
+        Assert.DoesNotContain("<Capability>", result);
+        Assert.DoesNotContain("<Request>", result);
+    }
+
+    [Fact]
+    public void GenerateCapabilities_ShouldUseCapabilityElement_ForWfs10()
+    {
+        var serviceUrl = "http://localhost/wfs";
+        var version = "1.0.0";
+
+        var result = _formatter.GenerateCapabilities(version, serviceUrl);
+
+        // WFS 1.0.0 should use <Capability><Request> structure
+        Assert.Contains("<Capability>", result);
+        Assert.Contains("<Request>", result);
+        Assert.Contains("</Capability>", result);
+        // Should NOT use OWS operations
+        Assert.DoesNotContain("<ows:OperationsMetadata>", result);
+    }
+
+    [Fact]
+    public void GenerateCapabilities_ShouldUseOwsDcpStructure_ForWfs20()
+    {
+        var serviceUrl = "http://localhost/wfs";
+        var version = "2.0.0";
+
+        var result = _formatter.GenerateCapabilities(version, serviceUrl);
+
+        // WFS 2.0.0 should use ows:DCP/ows:HTTP/ows:Get structure
+        Assert.Contains("<ows:DCP>", result);
+        Assert.Contains("<ows:HTTP>", result);
+        Assert.Contains("<ows:Get", result);
+        Assert.Contains("xlink:href=", result);
     }
 }

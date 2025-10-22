@@ -47,11 +47,18 @@ public class WfsCapabilitiesFormatter : IWfsCapabilitiesFormatter
         writer.WriteAttributeString("xmlns", "xsi", null, "http://www.w3.org/2001/XMLSchema-instance");
         writer.WriteAttributeString("xmlns", "gml", null, "http://www.opengis.net/gml");
 
+        // WFS 2.0.0 requires OWS and xlink namespaces
+        if (version.StartsWith("2."))
+        {
+            writer.WriteAttributeString("xmlns", "ows", null, "http://www.opengis.net/ows/1.1");
+            writer.WriteAttributeString("xmlns", "xlink", null, "http://www.w3.org/1999/xlink");
+        }
+
         // Service Identification
-        WriteServiceIdentification(writer);
+        WriteServiceIdentification(writer, version);
 
         // Service Provider
-        WriteServiceProvider(writer);
+        WriteServiceProvider(writer, version);
 
         // Operations Metadata
         WriteOperationsMetadata(writer, serviceUrl, version);
@@ -66,29 +73,56 @@ public class WfsCapabilitiesFormatter : IWfsCapabilitiesFormatter
         return stringWriter.ToString();
     }
 
-    private void WriteServiceIdentification(XmlWriter writer)
+    private void WriteServiceIdentification(XmlWriter writer, string version)
     {
-        writer.WriteStartElement("Service");
-
-        writer.WriteElementString("Name", "WFS");
-        writer.WriteElementString("Title", _options.ServiceTitle);
-        writer.WriteElementString("Abstract", _options.ServiceAbstract);
-
-        // Keywords
-        writer.WriteStartElement("Keywords");
-        foreach (var keyword in _options.Keywords.Split(','))
+        if (version.StartsWith("2."))
         {
-            writer.WriteElementString("Keyword", keyword.Trim());
+            // WFS 2.0.0: Use ows:ServiceIdentification
+            writer.WriteStartElement("ows", "ServiceIdentification", "http://www.opengis.net/ows/1.1");
+
+            writer.WriteElementString("ows", "Title", "http://www.opengis.net/ows/1.1", _options.ServiceTitle);
+            writer.WriteElementString("ows", "Abstract", "http://www.opengis.net/ows/1.1", _options.ServiceAbstract);
+
+            // Keywords
+            writer.WriteStartElement("ows", "Keywords", "http://www.opengis.net/ows/1.1");
+            foreach (var keyword in _options.Keywords.Split(','))
+            {
+                writer.WriteElementString("ows", "Keyword", "http://www.opengis.net/ows/1.1", keyword.Trim());
+            }
+            writer.WriteEndElement(); // ows:Keywords
+
+            writer.WriteElementString("ows", "ServiceType", "http://www.opengis.net/ows/1.1", "WFS");
+            writer.WriteElementString("ows", "ServiceTypeVersion", "http://www.opengis.net/ows/1.1", version);
+            writer.WriteElementString("ows", "Fees", "http://www.opengis.net/ows/1.1", _options.Fees);
+            writer.WriteElementString("ows", "AccessConstraints", "http://www.opengis.net/ows/1.1", _options.AccessConstraints);
+
+            writer.WriteEndElement(); // ows:ServiceIdentification
         }
-        writer.WriteEndElement(); // Keywords
+        else
+        {
+            // WFS 1.0.0: Use Service element
+            writer.WriteStartElement("Service");
 
-        writer.WriteElementString("Fees", _options.Fees);
-        writer.WriteElementString("AccessConstraints", _options.AccessConstraints);
+            writer.WriteElementString("Name", "WFS");
+            writer.WriteElementString("Title", _options.ServiceTitle);
+            writer.WriteElementString("Abstract", _options.ServiceAbstract);
 
-        writer.WriteEndElement(); // Service
+            // Keywords
+            writer.WriteStartElement("Keywords");
+            foreach (var keyword in _options.Keywords.Split(','))
+            {
+                writer.WriteElementString("Keyword", keyword.Trim());
+            }
+            writer.WriteEndElement(); // Keywords
+
+            writer.WriteElementString("Fees", _options.Fees);
+            writer.WriteElementString("AccessConstraints", _options.AccessConstraints);
+
+            writer.WriteEndElement(); // Service
+        }
     }
 
-    private void WriteServiceProvider(XmlWriter writer)
+    private void WriteServiceProvider(XmlWriter writer, string version)
     {
         if (string.IsNullOrEmpty(_options.ProviderName) &&
             string.IsNullOrEmpty(_options.ContactPerson))
@@ -96,64 +130,128 @@ public class WfsCapabilitiesFormatter : IWfsCapabilitiesFormatter
             return; // Skip if no provider info configured
         }
 
-        writer.WriteStartElement("ServiceProvider");
-
-        if (!string.IsNullOrEmpty(_options.ProviderName))
+        if (version.StartsWith("2."))
         {
-            writer.WriteElementString("ProviderName", _options.ProviderName);
-        }
+            // WFS 2.0.0: Use ows:ServiceProvider
+            writer.WriteStartElement("ows", "ServiceProvider", "http://www.opengis.net/ows/1.1");
 
-        if (!string.IsNullOrEmpty(_options.ProviderSite))
-        {
-            writer.WriteStartElement("ProviderSite");
-            writer.WriteAttributeString("href", _options.ProviderSite);
-            writer.WriteEndElement();
-        }
-
-        if (!string.IsNullOrEmpty(_options.ContactPerson) ||
-            !string.IsNullOrEmpty(_options.ContactEmail))
-        {
-            writer.WriteStartElement("ServiceContact");
-
-            if (!string.IsNullOrEmpty(_options.ContactPerson))
+            if (!string.IsNullOrEmpty(_options.ProviderName))
             {
-                writer.WriteElementString("IndividualName", _options.ContactPerson);
+                writer.WriteElementString("ows", "ProviderName", "http://www.opengis.net/ows/1.1", _options.ProviderName);
             }
 
-            if (!string.IsNullOrEmpty(_options.ContactEmail))
+            if (!string.IsNullOrEmpty(_options.ProviderSite))
             {
-                writer.WriteStartElement("ContactInfo");
-                writer.WriteStartElement("Address");
-                writer.WriteElementString("ElectronicMailAddress", _options.ContactEmail);
-                writer.WriteEndElement(); // Address
-                writer.WriteEndElement(); // ContactInfo
+                writer.WriteStartElement("ows", "ProviderSite", "http://www.opengis.net/ows/1.1");
+                writer.WriteAttributeString("xlink", "href", "http://www.w3.org/1999/xlink", _options.ProviderSite);
+                writer.WriteEndElement();
             }
 
-            writer.WriteEndElement(); // ServiceContact
-        }
+            if (!string.IsNullOrEmpty(_options.ContactPerson) ||
+                !string.IsNullOrEmpty(_options.ContactEmail))
+            {
+                writer.WriteStartElement("ows", "ServiceContact", "http://www.opengis.net/ows/1.1");
 
-        writer.WriteEndElement(); // ServiceProvider
+                if (!string.IsNullOrEmpty(_options.ContactPerson))
+                {
+                    writer.WriteElementString("ows", "IndividualName", "http://www.opengis.net/ows/1.1", _options.ContactPerson);
+                }
+
+                if (!string.IsNullOrEmpty(_options.ContactEmail))
+                {
+                    writer.WriteStartElement("ows", "ContactInfo", "http://www.opengis.net/ows/1.1");
+                    writer.WriteStartElement("ows", "Address", "http://www.opengis.net/ows/1.1");
+                    writer.WriteElementString("ows", "ElectronicMailAddress", "http://www.opengis.net/ows/1.1", _options.ContactEmail);
+                    writer.WriteEndElement(); // ows:Address
+                    writer.WriteEndElement(); // ows:ContactInfo
+                }
+
+                writer.WriteEndElement(); // ows:ServiceContact
+            }
+
+            writer.WriteEndElement(); // ows:ServiceProvider
+        }
+        else
+        {
+            // WFS 1.0.0: Use ServiceProvider element (no ows prefix)
+            writer.WriteStartElement("ServiceProvider");
+
+            if (!string.IsNullOrEmpty(_options.ProviderName))
+            {
+                writer.WriteElementString("ProviderName", _options.ProviderName);
+            }
+
+            if (!string.IsNullOrEmpty(_options.ProviderSite))
+            {
+                writer.WriteStartElement("ProviderSite");
+                writer.WriteAttributeString("href", _options.ProviderSite);
+                writer.WriteEndElement();
+            }
+
+            if (!string.IsNullOrEmpty(_options.ContactPerson) ||
+                !string.IsNullOrEmpty(_options.ContactEmail))
+            {
+                writer.WriteStartElement("ServiceContact");
+
+                if (!string.IsNullOrEmpty(_options.ContactPerson))
+                {
+                    writer.WriteElementString("IndividualName", _options.ContactPerson);
+                }
+
+                if (!string.IsNullOrEmpty(_options.ContactEmail))
+                {
+                    writer.WriteStartElement("ContactInfo");
+                    writer.WriteStartElement("Address");
+                    writer.WriteElementString("ElectronicMailAddress", _options.ContactEmail);
+                    writer.WriteEndElement(); // Address
+                    writer.WriteEndElement(); // ContactInfo
+                }
+
+                writer.WriteEndElement(); // ServiceContact
+            }
+
+            writer.WriteEndElement(); // ServiceProvider
+        }
     }
 
     private void WriteOperationsMetadata(XmlWriter writer, string serviceUrl, string version)
     {
-        writer.WriteStartElement("Capability");
-        writer.WriteStartElement("Request");
+        if (version.StartsWith("2."))
+        {
+            // WFS 2.0.0: Use ows:OperationsMetadata
+            writer.WriteStartElement("ows", "OperationsMetadata", "http://www.opengis.net/ows/1.1");
 
-        // GetCapabilities
-        WriteOperation(writer, "GetCapabilities", serviceUrl, null, null);
+            // GetCapabilities
+            WriteOwsOperation(writer, "GetCapabilities", serviceUrl);
 
-        // DescribeFeatureType - include supported output formats
-        var describeFormats = new[] { "XMLSCHEMA" };
-        WriteOperation(writer, "DescribeFeatureType", serviceUrl, describeFormats, "SchemaDescriptionLanguage");
+            // DescribeFeatureType
+            WriteOwsOperation(writer, "DescribeFeatureType", serviceUrl);
 
-        // GetFeature - include supported result formats based on version
-        // WFS 1.0.0 requires GML2, WFS 2.0.0 uses GML3
-        var getFeatureFormats = version == "1.0.0" ? new[] { "GML2" } : new[] { "GML3" };
-        WriteOperation(writer, "GetFeature", serviceUrl, getFeatureFormats, "ResultFormat");
+            // GetFeature
+            WriteOwsOperation(writer, "GetFeature", serviceUrl);
 
-        writer.WriteEndElement(); // Request
-        writer.WriteEndElement(); // Capability
+            writer.WriteEndElement(); // ows:OperationsMetadata
+        }
+        else
+        {
+            // WFS 1.0.0: Use Capability/Request structure
+            writer.WriteStartElement("Capability");
+            writer.WriteStartElement("Request");
+
+            // GetCapabilities
+            WriteOperation(writer, "GetCapabilities", serviceUrl, null, null);
+
+            // DescribeFeatureType - include supported output formats
+            var describeFormats = new[] { "XMLSCHEMA" };
+            WriteOperation(writer, "DescribeFeatureType", serviceUrl, describeFormats, "SchemaDescriptionLanguage");
+
+            // GetFeature - include supported result formats based on version
+            var getFeatureFormats = new[] { "GML2" };
+            WriteOperation(writer, "GetFeature", serviceUrl, getFeatureFormats, "ResultFormat");
+
+            writer.WriteEndElement(); // Request
+            writer.WriteEndElement(); // Capability
+        }
     }
 
     private void WriteOperation(XmlWriter writer, string operationName, string serviceUrl, string[]? formats, string? formatContainerName)
@@ -189,6 +287,24 @@ public class WfsCapabilitiesFormatter : IWfsCapabilitiesFormatter
         writer.WriteEndElement(); // HTTP
         writer.WriteEndElement(); // DCPType
         writer.WriteEndElement(); // Operation
+    }
+
+    private void WriteOwsOperation(XmlWriter writer, string operationName, string serviceUrl)
+    {
+        writer.WriteStartElement("ows", "Operation", "http://www.opengis.net/ows/1.1");
+        writer.WriteAttributeString("name", operationName);
+
+        writer.WriteStartElement("ows", "DCP", "http://www.opengis.net/ows/1.1");
+        writer.WriteStartElement("ows", "HTTP", "http://www.opengis.net/ows/1.1");
+
+        writer.WriteStartElement("ows", "Get", "http://www.opengis.net/ows/1.1");
+        writer.WriteAttributeString("xlink", "href", "http://www.w3.org/1999/xlink", serviceUrl);
+        writer.WriteEndElement(); // ows:Get
+
+        writer.WriteEndElement(); // ows:HTTP
+        writer.WriteEndElement(); // ows:DCP
+
+        writer.WriteEndElement(); // ows:Operation
     }
 
     private void WriteFeatureTypeList(XmlWriter writer, string version)
