@@ -92,6 +92,56 @@ public class WfsFeatureFormatterTests
     }
 
     [Fact]
+    public void FormatAsGml_ShouldUseGml2Coordinates_ForWfs10()
+    {
+        var version = "1.0.0";
+
+        var result = _formatter.FormatAsGml(_sampleCollection, version);
+
+        // GML 2 uses <gml:coordinates> with comma-separated values
+        Assert.Contains("<gml:coordinates", result);
+        Assert.DoesNotContain("<gml:pos", result);
+    }
+
+    [Fact]
+    public void FormatAsGml_ShouldUseGml3Pos_ForWfs20()
+    {
+        var version = "2.0.0";
+
+        var result = _formatter.FormatAsGml(_sampleCollection, version);
+
+        // GML 3 uses <gml:pos> with space-separated values
+        Assert.Contains("<gml:pos", result);
+        Assert.DoesNotContain("<gml:coordinates", result);
+    }
+
+    [Fact]
+    public void FormatAsGml_ShouldUseBox_ForWfs10()
+    {
+        var version = "1.0.0";
+
+        var result = _formatter.FormatAsGml(_sampleCollection, version);
+
+        // GML 2 uses Box for bounding boxes
+        Assert.Contains("<gml:Box", result);
+        Assert.DoesNotContain("<gml:Envelope", result);
+    }
+
+    [Fact]
+    public void FormatAsGml_ShouldUseEnvelope_ForWfs20()
+    {
+        var version = "2.0.0";
+
+        var result = _formatter.FormatAsGml(_sampleCollection, version);
+
+        // GML 3 uses Envelope for bounding boxes
+        Assert.Contains("<gml:Envelope", result);
+        Assert.Contains("<gml:lowerCorner", result);
+        Assert.Contains("<gml:upperCorner", result);
+        Assert.DoesNotContain("<gml:Box", result);
+    }
+
+    [Fact]
     public void FormatAsGeoJson_ShouldReturnValidJson_WhenCalled()
     {
         var result = _formatter.FormatAsGeoJson(_sampleCollection);

@@ -23,6 +23,11 @@ public class WfsFeatureFormatter : IWfsFeatureFormatter
     {
         var targetSrs = _transformationService.NormalizeEpsgCode(srsName!);
 
+        // Determine GML version based on WFS version
+        // WFS 1.0.0 requires GML 2.1.2
+        // WFS 1.1.0 and 2.0.0 use GML 3.x
+        var useGml2 = version == "1.0.0";
+
         var settings = new XmlWriterSettings
         {
             Indent = true,
@@ -44,13 +49,27 @@ public class WfsFeatureFormatter : IWfsFeatureFormatter
         // Bounding box (if provided)
         if (collection.BoundingBox != null)
         {
-            WriteBoundingBox(writer, collection.BoundingBox, targetSrs);
+            if (useGml2)
+            {
+                WriteBoundingBoxGml2(writer, collection.BoundingBox, targetSrs);
+            }
+            else
+            {
+                WriteBoundingBoxGml3(writer, collection.BoundingBox, targetSrs);
+            }
         }
 
         // Features
         foreach (var feature in collection.Features)
         {
-            WriteFeature(writer, feature, targetSrs);
+            if (useGml2)
+            {
+                WriteFeatureGml2(writer, feature, targetSrs);
+            }
+            else
+            {
+                WriteFeatureGml3(writer, feature, targetSrs);
+            }
         }
 
         writer.WriteEndElement(); // FeatureCollection
@@ -177,7 +196,24 @@ public class WfsFeatureFormatter : IWfsFeatureFormatter
         return stringWriter.ToString();
     }
 
-    private void WriteBoundingBox(XmlWriter writer, BoundingBox bbox, string srsName)
+    private void WriteBoundingBoxGml2(XmlWriter writer, BoundingBox bbox, string srsName)
+    {
+        var minCoord = _transformationService.Transform(new GeoCoordinate(bbox.MinLatitude, bbox.MinLongitude), srsName);
+        var maxCoord = _transformationService.Transform(new GeoCoordinate(bbox.MaxLatitude, bbox.MaxLongitude), srsName);
+
+        writer.WriteStartElement("gml", "boundedBy", "http://www.opengis.net/gml");
+        writer.WriteStartElement("gml", "Box", "http://www.opengis.net/gml");
+        writer.WriteAttributeString("srsName", srsName);
+
+        // GML 2 uses <gml:coordinates> with comma-separated tuples
+        writer.WriteElementString("gml", "coordinates", "http://www.opengis.net/gml",
+            $"{minCoord.Longitude},{minCoord.Latitude} {maxCoord.Longitude},{maxCoord.Latitude}");
+
+        writer.WriteEndElement(); // Box
+        writer.WriteEndElement(); // boundedBy
+    }
+
+    private void WriteBoundingBoxGml3(XmlWriter writer, BoundingBox bbox, string srsName)
     {
         var minCoord = _transformationService.Transform(new GeoCoordinate(bbox.MinLatitude, bbox.MinLongitude), srsName);
         var maxCoord = _transformationService.Transform(new GeoCoordinate(bbox.MaxLatitude, bbox.MaxLongitude), srsName);
@@ -195,7 +231,7 @@ public class WfsFeatureFormatter : IWfsFeatureFormatter
         writer.WriteEndElement(); // boundedBy
     }
 
-    private void WriteFeature(XmlWriter writer, WfsFeature feature, string srsName)
+    private void WriteFeatureGml2(XmlWriter writer, WfsFeature feature, string srsName)
     {
         var coord = _transformationService.Transform(feature.Coordinate, srsName);
 
@@ -214,11 +250,47 @@ public class WfsFeatureFormatter : IWfsFeatureFormatter
 
         writer.WriteElementString("w3w", "language", "http://what3words.com", feature.Location.Language);
 
-        // Geometry
+        // Geometry - GML 2 format
         writer.WriteStartElement("w3w", "geometry", "http://what3words.com");
         writer.WriteStartElement("gml", "Point", "http://www.opengis.net/gml");
         writer.WriteAttributeString("srsName", srsName);
 
+        // GML 2 uses <gml:coordinates> with comma-separated lon,lat
+        writer.WriteElementString("gml", "coordinates", "http://www.opengis.net/gml",
+            $"{coord.Longitude},{coord.Latitude}");
+
+        writer.WriteEndElement(); // Point
+        writer.WriteEndElement(); // geometry
+
+        writer.WriteEndElement(); // location
+        writer.WriteEndElement(); // featureMember
+    }
+
+    private void WriteFeatureGml3(XmlWriter writer, WfsFeature feature, string srsName)
+    {
+        var coord = _transformationService.Transform(feature.Coordinate, srsName);
+
+        writer.WriteStartElement("gml", "featureMember", "http://www.opengis.net/gml");
+        writer.WriteStartElement("w3w", "location", "http://what3words.com");
+        writer.WriteAttributeString("gml", "id", "http://www.opengis.net/gml", feature.Id);
+
+        // Properties
+        writer.WriteElementString("w3w", "words", "http://what3words.com", feature.Location.Words);
+        writer.WriteElementString("w3w", "country", "http://what3words.com", feature.Location.Country);
+
+        if (!string.IsNullOrEmpty(feature.Location.NearestPlace))
+        {
+            writer.WriteElementString("w3w", "nearestPlace", "http://what3words.com", feature.Location.NearestPlace);
+        }
+
+        writer.WriteElementString("w3w", "language", "http://what3words.com", feature.Location.Language);
+
+        // Geometry - GML 3 format
+        writer.WriteStartElement("w3w", "geometry", "http://what3words.com");
+        writer.WriteStartElement("gml", "Point", "http://www.opengis.net/gml");
+        writer.WriteAttributeString("srsName", srsName);
+
+        // GML 3 uses <gml:pos> with space-separated lat lon
         writer.WriteElementString("gml", "pos", "http://www.opengis.net/gml",
             $"{coord.Latitude} {coord.Longitude}");
 
