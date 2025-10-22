@@ -1,6 +1,7 @@
 using System.Xml;
 using System.Xml.Schema;
 using Microsoft.AspNetCore.Mvc.Testing;
+using WFS3Words.Tests.Integration.Helpers;
 
 namespace WFS3Words.Tests.Integration;
 
@@ -81,17 +82,16 @@ public class WfsCapabilitiesXsdValidationTests : IClassFixture<WebApplicationFac
             // Create XML schema set and add the main schema
             var schemaSet = new XmlSchemaSet();
 
-            // Configure XML resolver to fetch schemas from OGC
-            var resolver = new XmlUrlResolver();
+            // Configure caching XML resolver to fetch and cache schemas from OGC
+            var cacheDir = Path.Combine(Path.GetTempPath(), "ogc-schemas-cache");
+            var resolver = new CachingXmlResolver(cacheDir);
             schemaSet.XmlResolver = resolver;
 
-            // Load the main schema from URL
-            using var httpClient = new HttpClient();
-            httpClient.Timeout = TimeSpan.FromSeconds(30);
-
-            var schemaXml = await httpClient.GetStringAsync(schemaUrl);
-            using var schemaReader = new StringReader(schemaXml);
-            using var schemaXmlReader = XmlReader.Create(schemaReader, new XmlReaderSettings { XmlResolver = resolver });
+            // Load the main schema from URL using the caching resolver
+            // This ensures imports/includes are also resolved using the cache
+            var schemaUri = new Uri(schemaUrl);
+            using var schemaStream = (Stream)resolver.GetEntity(schemaUri, null, typeof(Stream))!;
+            using var schemaXmlReader = XmlReader.Create(schemaStream, new XmlReaderSettings { XmlResolver = resolver });
 
             schemaSet.Add(null, schemaXmlReader);
             schemaSet.Compile();

@@ -1,6 +1,7 @@
 using System.Xml;
 using System.Xml.Schema;
 using Microsoft.AspNetCore.Mvc.Testing;
+using WFS3Words.Tests.Integration.Helpers;
 
 namespace WFS3Words.Tests.Integration;
 
@@ -56,7 +57,7 @@ public class WfsGetFeatureXsdValidationTests : IClassFixture<WebApplicationFacto
         }
     }
 
-    [Fact(Skip = "WFS 2.0.0 GML 3.2.1 schema validation has complex nested schema dependencies that cause validation issues")]
+    [Fact(Skip = "WFS 2.0.0 uses GML 3.2.1 which has complex nested schema dependencies (ISO 19136, xlinks, SMIL) that .NET XmlSchemaSet cannot resolve properly even with custom caching resolvers. Manual validation with xmllint confirms compliance.")]
     public async Task GetFeature_WFS200_ShouldValidateAgainstOfficialXsd()
     {
         // Arrange
@@ -104,17 +105,32 @@ public class WfsGetFeatureXsdValidationTests : IClassFixture<WebApplicationFacto
             // Create XML schema set and add the main schema
             var schemaSet = new XmlSchemaSet();
 
-            // Configure XML resolver to fetch schemas from OGC
-            var resolver = new XmlUrlResolver();
+            // Configure caching XML resolver to fetch and cache schemas from OGC
+            var cacheDir = Path.Combine(Path.GetTempPath(), "ogc-schemas-cache");
+            var resolver = new CachingXmlResolver(cacheDir);
             schemaSet.XmlResolver = resolver;
 
-            // Load the main schema from URL
-            using var httpClient = new HttpClient();
-            httpClient.Timeout = TimeSpan.FromSeconds(30);
+            // For WFS 2.0, pre-load GML 3.2.1 schema to help with imports resolution
+            if (schemaUrl.Contains("wfs/2.0"))
+            {
+                try
+                {
+                    var gmlSchemaUri = new Uri("http://schemas.opengis.net/gml/3.2.1/gml.xsd");
+                    using var gmlStream = (Stream)resolver.GetEntity(gmlSchemaUri, null, typeof(Stream))!;
+                    using var gmlReader = XmlReader.Create(gmlStream, new XmlReaderSettings { XmlResolver = resolver });
+                    schemaSet.Add("http://www.opengis.net/gml", gmlReader);
+                }
+                catch
+                {
+                    // If pre-loading fails, continue anyway
+                }
+            }
 
-            var schemaXml = await httpClient.GetStringAsync(schemaUrl);
-            using var schemaReader = new StringReader(schemaXml);
-            using var schemaXmlReader = XmlReader.Create(schemaReader, new XmlReaderSettings { XmlResolver = resolver });
+            // Load the main schema from URL using the caching resolver
+            // This ensures imports/includes are also resolved using the cache
+            var schemaUri = new Uri(schemaUrl);
+            using var schemaStream = (Stream)resolver.GetEntity(schemaUri, null, typeof(Stream))!;
+            using var schemaXmlReader = XmlReader.Create(schemaStream, new XmlReaderSettings { XmlResolver = resolver });
 
             schemaSet.Add(null, schemaXmlReader);
             schemaSet.Compile();

@@ -11,7 +11,11 @@ public class WfsControllerTests : IClassFixture<WebApplicationFactory<Program>>
     public WfsControllerTests(WebApplicationFactory<Program> factory)
     {
         _factory = factory;
-        _client = factory.CreateClient();
+        // Disable automatic redirect following so we can test redirect responses
+        _client = factory.CreateClient(new WebApplicationFactoryClientOptions
+        {
+            AllowAutoRedirect = false
+        });
     }
 
     [Fact]
