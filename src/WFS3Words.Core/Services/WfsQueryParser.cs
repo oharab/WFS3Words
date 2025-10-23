@@ -25,6 +25,7 @@ public class WfsQueryParser
 
         // Try to get BBOX from direct parameter first
         var bbox = ParseBoundingBox(GetValue(caseInsensitiveParams, "bbox"));
+        string? srsName = GetValue(caseInsensitiveParams, "srsname") ?? GetValue(caseInsensitiveParams, "srs");
 
         // If no direct BBOX, try to extract from Filter XML
         if (bbox == null)
@@ -32,7 +33,9 @@ public class WfsQueryParser
             var filterXml = GetValue(caseInsensitiveParams, "filter");
             if (filterXml != null)
             {
-                bbox = ExtractBBoxFromFilter(filterXml);
+                (bbox, var filterSrs) = ExtractBBoxAndSrsFromFilter(filterXml);
+                // Use Filter SRS if no explicit srsName/srs parameter was provided
+                srsName ??= filterSrs;
             }
         }
 
@@ -47,8 +50,7 @@ public class WfsQueryParser
             MaxFeatures = ParseInt(GetValue(caseInsensitiveParams, "maxfeatures") ??
                                   GetValue(caseInsensitiveParams, "count")),
             OutputFormat = GetValue(caseInsensitiveParams, "outputformat"),
-            SrsName = GetValue(caseInsensitiveParams, "srsname") ??
-                     GetValue(caseInsensitiveParams, "srs")
+            SrsName = srsName
         };
     }
 
@@ -76,10 +78,11 @@ public class WfsQueryParser
     }
 
     /// <summary>
-    /// Extracts BBOX from OGC Filter XML.
+    /// Extracts BBOX and SRS from OGC Filter XML.
     /// Supports Filter elements containing BBOX with gml:Box or gml:Envelope.
+    /// Returns tuple of (BoundingBox, SrsName).
     /// </summary>
-    private BoundingBox? ExtractBBoxFromFilter(string filterXml)
+    private (BoundingBox?, string?) ExtractBBoxAndSrsFromFilter(string filterXml)
     {
         try
         {
@@ -90,20 +93,23 @@ public class WfsQueryParser
             // Look for BBOX element
             var bboxElement = doc.Descendants(ogcNamespace + "BBOX").FirstOrDefault();
             if (bboxElement == null)
-                return null;
+                return (null, null);
 
             // Try to find gml:Box or gml:Envelope
             var boxElement = bboxElement.Descendants(gmlNamespace + "Box").FirstOrDefault() ??
                            bboxElement.Descendants(gmlNamespace + "Envelope").FirstOrDefault();
 
             if (boxElement == null)
-                return null;
+                return (null, null);
+
+            // Extract SRS from srsName attribute
+            var srsName = boxElement.Attribute("srsName")?.Value;
 
             // Try gml:coordinates format (GML 2.x)
             var coordinatesElement = boxElement.Element(gmlNamespace + "coordinates");
             if (coordinatesElement != null)
             {
-                return ParseGmlCoordinates(coordinatesElement.Value);
+                return (ParseGmlCoordinates(coordinatesElement.Value), srsName);
             }
 
             // Try gml:lowerCorner and gml:upperCorner format (GML 3.x)
@@ -112,15 +118,15 @@ public class WfsQueryParser
 
             if (lowerCorner != null && upperCorner != null)
             {
-                return ParseGmlCorners(lowerCorner.Value, upperCorner.Value);
+                return (ParseGmlCorners(lowerCorner.Value, upperCorner.Value), srsName);
             }
 
-            return null;
+            return (null, srsName);
         }
         catch
         {
             // If Filter XML parsing fails, return null
-            return null;
+            return (null, null);
         }
     }
 

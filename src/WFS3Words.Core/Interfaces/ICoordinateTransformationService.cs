@@ -22,6 +22,24 @@ public interface ICoordinateTransformationService
     GeoCoordinate Transform(GeoCoordinate coordinate, string targetEpsgCode);
 
     /// <summary>
+    /// Transforms a coordinate from the source CRS to WGS84 (EPSG:4326).
+    /// </summary>
+    /// <param name="coordinate">Coordinate in source CRS</param>
+    /// <param name="sourceEpsgCode">Source EPSG code (e.g., "EPSG:3857", "EPSG:27700")</param>
+    /// <returns>Transformed coordinate in WGS84</returns>
+    /// <exception cref="ArgumentException">Thrown when source CRS is not supported</exception>
+    GeoCoordinate TransformToWgs84(GeoCoordinate coordinate, string sourceEpsgCode);
+
+    /// <summary>
+    /// Transforms a bounding box from the source CRS to WGS84 (EPSG:4326).
+    /// </summary>
+    /// <param name="bbox">Bounding box in source CRS</param>
+    /// <param name="sourceEpsgCode">Source EPSG code (e.g., "EPSG:3857", "EPSG:27700")</param>
+    /// <returns>Transformed bounding box in WGS84</returns>
+    /// <exception cref="ArgumentException">Thrown when source CRS is not supported</exception>
+    BoundingBox TransformBBoxToWgs84(BoundingBox bbox, string sourceEpsgCode);
+
+    /// <summary>
     /// Checks if a CRS is supported.
     /// </summary>
     /// <param name="epsgCode">EPSG code to check (e.g., "EPSG:4326")</param>

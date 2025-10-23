@@ -76,6 +76,81 @@ public class CoordinateTransformationService : ICoordinateTransformationService
     }
 
     /// <inheritdoc />
+    public GeoCoordinate TransformToWgs84(GeoCoordinate coordinate, string sourceEpsgCode)
+    {
+        var normalizedCode = NormalizeEpsgCode(sourceEpsgCode);
+
+        // If source is already WGS84, no transformation needed
+        if (normalizedCode == "EPSG:4326")
+        {
+            return coordinate;
+        }
+
+        if (!IsSupported(normalizedCode))
+        {
+            throw new ArgumentException(
+                $"Coordinate system {normalizedCode} is not supported. Supported systems: {string.Join(", ", SupportedEpsgCodes)}",
+                nameof(sourceEpsgCode));
+        }
+
+        var sourceCs = _coordinateSystems[normalizedCode];
+        var targetCs = _coordinateSystems["EPSG:4326"];
+
+        var transformation = _ctFactory.CreateFromCoordinateSystems(sourceCs, targetCs);
+
+        // For projected systems, input is [easting, northing] or [x, y]
+        // For geographic systems, input is [longitude, latitude]
+        var sourcePoint = new[] { coordinate.Longitude, coordinate.Latitude };
+        var targetPoint = transformation.MathTransform.Transform(sourcePoint);
+
+        // Result is [longitude, latitude] in WGS84
+        return new GeoCoordinate(targetPoint[1], targetPoint[0]);
+    }
+
+    /// <inheritdoc />
+    public BoundingBox TransformBBoxToWgs84(BoundingBox bbox, string sourceEpsgCode)
+    {
+        var normalizedCode = NormalizeEpsgCode(sourceEpsgCode);
+
+        // If source is already WGS84, no transformation needed
+        if (normalizedCode == "EPSG:4326")
+        {
+            return bbox;
+        }
+
+        if (!IsSupported(normalizedCode))
+        {
+            throw new ArgumentException(
+                $"Coordinate system {normalizedCode} is not supported. Supported systems: {string.Join(", ", SupportedEpsgCodes)}",
+                nameof(sourceEpsgCode));
+        }
+
+        // Transform the four corners of the bounding box
+        var sw = new GeoCoordinate(bbox.MinLatitude, bbox.MinLongitude);
+        var ne = new GeoCoordinate(bbox.MaxLatitude, bbox.MaxLongitude);
+        var se = new GeoCoordinate(bbox.MinLatitude, bbox.MaxLongitude);
+        var nw = new GeoCoordinate(bbox.MaxLatitude, bbox.MinLongitude);
+
+        var swTransformed = TransformToWgs84(sw, normalizedCode);
+        var neTransformed = TransformToWgs84(ne, normalizedCode);
+        var seTransformed = TransformToWgs84(se, normalizedCode);
+        var nwTransformed = TransformToWgs84(nw, normalizedCode);
+
+        // Find the min/max of all transformed coordinates
+        // (projection distortion can cause corners to not be in expected order)
+        var minLat = Math.Min(Math.Min(swTransformed.Latitude, neTransformed.Latitude),
+                             Math.Min(seTransformed.Latitude, nwTransformed.Latitude));
+        var maxLat = Math.Max(Math.Max(swTransformed.Latitude, neTransformed.Latitude),
+                             Math.Max(seTransformed.Latitude, nwTransformed.Latitude));
+        var minLon = Math.Min(Math.Min(swTransformed.Longitude, neTransformed.Longitude),
+                             Math.Min(seTransformed.Longitude, nwTransformed.Longitude));
+        var maxLon = Math.Max(Math.Max(swTransformed.Longitude, neTransformed.Longitude),
+                             Math.Max(seTransformed.Longitude, nwTransformed.Longitude));
+
+        return new BoundingBox(minLat, minLon, maxLat, maxLon);
+    }
+
+    /// <inheritdoc />
     public bool IsSupported(string epsgCode)
     {
         var normalized = NormalizeEpsgCode(epsgCode);

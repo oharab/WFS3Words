@@ -16,6 +16,7 @@ public class WfsController : ControllerBase
 {
     private readonly IWhat3WordsClient _what3WordsClient;
     private readonly ICoordinateGridService _gridService;
+    private readonly ICoordinateTransformationService _transformationService;
     private readonly IWfsCapabilitiesFormatter _capabilitiesFormatter;
     private readonly IWfsFeatureFormatter _featureFormatter;
     private readonly WfsQueryParser _queryParser;
@@ -25,6 +26,7 @@ public class WfsController : ControllerBase
     public WfsController(
         IWhat3WordsClient what3WordsClient,
         ICoordinateGridService gridService,
+        ICoordinateTransformationService transformationService,
         IWfsCapabilitiesFormatter capabilitiesFormatter,
         IWfsFeatureFormatter featureFormatter,
         WfsQueryParser queryParser,
@@ -33,6 +35,7 @@ public class WfsController : ControllerBase
     {
         _what3WordsClient = what3WordsClient;
         _gridService = gridService;
+        _transformationService = transformationService;
         _capabilitiesFormatter = capabilitiesFormatter;
         _featureFormatter = featureFormatter;
         _queryParser = queryParser;
@@ -142,28 +145,49 @@ public class WfsController : ControllerBase
 
         try
         {
-            // Check if coordinates are in WGS84 range (What3Words only supports WGS84)
-            if (!request.BBox.IsValid())
+            var sourceSrs = _transformationService.NormalizeEpsgCode(request.SrsName ?? "EPSG:4326");
+            BoundingBox transformedBBox = request.BBox;
+
+            // Transform BBOX to WGS84 if needed (What3Words only supports WGS84)
+            if (sourceSrs != "EPSG:4326")
             {
-                _logger.LogWarning(
-                    "GetFeature request with non-WGS84 coordinates. CRS transformation not yet supported. BBOX: {BBox}, SRS: {Srs}",
-                    request.BBox,
-                    request.SrsName);
-                return BadRequest(new
+                if (!_transformationService.IsSupported(sourceSrs))
                 {
-                    error = "Coordinates must be in WGS84 (EPSG:4326). " +
-                           "The requested CRS is not currently supported. " +
-                           $"Requested SRS: {request.SrsName ?? "not specified"}. " +
-                           "Please provide coordinates in decimal degrees (latitude/longitude)."
-                });
+                    _logger.LogWarning(
+                        "GetFeature request with unsupported CRS: {Srs}. Supported: {Supported}",
+                        sourceSrs,
+                        string.Join(", ", _transformationService.SupportedEpsgCodes));
+                    return BadRequest(new
+                    {
+                        error = $"Coordinate system {sourceSrs} is not supported. " +
+                               $"Supported systems: {string.Join(", ", _transformationService.SupportedEpsgCodes)}"
+                    });
+                }
+
+                _logger.LogInformation(
+                    "Transforming BBOX from {SourceSrs} to WGS84. Original BBOX: [{MinLon},{MinLat},{MaxLon},{MaxLat}]",
+                    sourceSrs,
+                    request.BBox.MinLongitude,
+                    request.BBox.MinLatitude,
+                    request.BBox.MaxLongitude,
+                    request.BBox.MaxLatitude);
+
+                transformedBBox = _transformationService.TransformBBoxToWgs84(request.BBox, sourceSrs);
+
+                _logger.LogInformation(
+                    "Transformed BBOX to WGS84: [{MinLon},{MinLat},{MaxLon},{MaxLat}]",
+                    transformedBBox.MinLongitude,
+                    transformedBBox.MinLatitude,
+                    transformedBBox.MaxLongitude,
+                    transformedBBox.MaxLatitude);
             }
 
             var maxFeatures = request.MaxFeatures ?? _wfsOptions.MaxFeatures;
             var gridDensity = _wfsOptions.DefaultGridDensity;
 
-            // Generate coordinate grid
+            // Generate coordinate grid (in WGS84)
             var coordinates = _gridService.GenerateGrid(
-                request.BBox,
+                transformedBBox,
                 gridDensity,
                 maxFeatures).ToList();
 
@@ -204,23 +228,25 @@ public class WfsController : ControllerBase
             var collection = new WfsFeatureCollection(
                 features,
                 features.Count,
-                request.BBox);
+                transformedBBox);
 
             _logger.LogInformation(
                 "Returning {Count} features for GetFeature request",
                 features.Count);
 
             // Determine output format
+            // Note: We always output in WGS84 (EPSG:4326) regardless of input CRS
+            // because What3Words API only works with WGS84 coordinates
             var outputFormat = request.OutputFormat?.ToLowerInvariant();
             if (outputFormat?.Contains("json") == true || outputFormat?.Contains("geojson") == true)
             {
-                var json = _featureFormatter.FormatAsGeoJson(collection, request.SrsName);
+                var json = _featureFormatter.FormatAsGeoJson(collection, "EPSG:4326");
                 return Content(json, "application/geo+json");
             }
             else
             {
                 var version = request.Version ?? "2.0.0";
-                var xml = _featureFormatter.FormatAsGml(collection, version, request.SrsName);
+                var xml = _featureFormatter.FormatAsGml(collection, version, "EPSG:4326");
                 return Content(xml, "application/gml+xml");
             }
         }

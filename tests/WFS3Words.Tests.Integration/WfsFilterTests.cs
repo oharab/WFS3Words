@@ -72,12 +72,37 @@ public class WfsFilterTests : IClassFixture<WebApplicationFactory<Program>>
     }
 
     [Fact]
-    public async Task GetFeature_ShouldReturnError_ForProjectedCoordinates()
+    public async Task GetFeature_ShouldTransformProjectedCoordinates_FromEPSG27700()
     {
         // Arrange - This tests the actual GitHub issue #6 scenario
         // The client provided EPSG:27700 (British National Grid) coordinates
-        // which are in meters, not degrees. This is not yet supported.
-        var client = _factory.CreateClient();
+        // which are in meters, not degrees. The service should transform them to WGS84.
+        var mockWhat3Words = new Mock<IWhat3WordsClient>();
+        mockWhat3Words
+            .Setup(x => x.ConvertToWordsAsync(It.IsAny<GeoCoordinate>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new What3WordsLocation(
+                Words: "filled.count.soap",
+                Coordinates: new GeoCoordinate(51.520847, -0.195521),
+                Country: "GB",
+                Square: new BoundingBox(51.520833, -0.195542, 51.520861, -0.195500),
+                NearestPlace: "London",
+                Language: "en",
+                Map: null));
+
+        var factory = _factory.WithWebHostBuilder(builder =>
+        {
+            builder.ConfigureServices(services =>
+            {
+                var descriptor = services.SingleOrDefault(d => d.ServiceType == typeof(IWhat3WordsClient));
+                if (descriptor != null)
+                {
+                    services.Remove(descriptor);
+                }
+                services.AddSingleton(mockWhat3Words.Object);
+            });
+        });
+
+        var client = factory.CreateClient();
 
         // URL-encoded Filter XML from the actual GitHub issue (EPSG:27700 coordinates)
         var filterParam = "%3cFilter+xmlns%3d%22http%3a%2f%2fwww.opengis.net%2fogc%22%3e%3cBBOX%3e%3cPropertyName%3egeometry%3c%2fPropertyName%3e%3cgml%3aBox+xmlns%3agml%3d%22http%3a%2f%2fwww.opengis.net%2fgml%22+srsName%3d%22EPSG%3a27700%22%3e%3cgml%3acoordinates%3e313713.8465717831%2c385205.1723566118+469814.4853875725%2c483863.37235661177%3c%2fgml%3acoordinates%3e%3c%2fgml%3aBox%3e%3c%2fBBOX%3e%3c%2fFilter%3e";
@@ -85,15 +110,15 @@ public class WfsFilterTests : IClassFixture<WebApplicationFactory<Program>>
         // Act
         var response = await client.GetAsync($"/wfs?request=GetFeature&version=1.0.0&service=WFS&typename=location&filter={filterParam}");
 
-        // Assert - Should now successfully parse the Filter but reject non-WGS84 coordinates
-        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        // Assert - Should successfully parse Filter and transform EPSG:27700 to WGS84
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
         var content = await response.Content.ReadAsStringAsync();
         // Should NOT complain about missing BBOX (it was parsed from Filter)
         Assert.DoesNotContain("BBOX parameter is required", content);
-        // Should explain that projected coordinates aren't supported yet
-        Assert.Contains("WGS84", content);
-        Assert.Contains("EPSG:4326", content);
+        // Should contain valid GML response
+        Assert.Contains("FeatureCollection", content);
+        Assert.DoesNotContain("not supported", content, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
