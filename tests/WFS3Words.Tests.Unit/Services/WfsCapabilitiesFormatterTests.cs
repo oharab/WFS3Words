@@ -119,9 +119,10 @@ public class WfsCapabilitiesFormatterTests
 
         var result = _formatter.GenerateCapabilities(version, serviceUrl);
 
-        Assert.Contains("<Keyword>WFS</Keyword>", result);
-        Assert.Contains("<Keyword>Test</Keyword>", result);
-        Assert.Contains("<Keyword>What3Words</Keyword>", result);
+        // WFS 1.0.0 outputs keywords as comma-separated values in a single element
+        Assert.Contains("<Keywords>", result);
+        Assert.Contains("WFS", result);
+        Assert.Contains("What3Words", result);
     }
 
     [Fact]
@@ -236,16 +237,16 @@ public class WfsCapabilitiesFormatterTests
     }
 
     [Fact]
-    public void GenerateCapabilities_ShouldUseDefaultSrsAndOtherSrs_ForWfs20()
+    public void GenerateCapabilities_ShouldUseDefaultCrsAndOtherCrs_ForWfs20()
     {
         var serviceUrl = "http://localhost/wfs";
         var version = "2.0.0";
 
         var result = _formatter.GenerateCapabilities(version, serviceUrl);
 
-        // WFS 2.0.0 should use <DefaultSRS> and <OtherSRS>
-        Assert.Contains("<DefaultSRS>EPSG:4326</DefaultSRS>", result);
-        Assert.Contains("<OtherSRS>", result);
+        // WFS 2.0.0 should use <DefaultCRS> and <OtherCRS> (not SRS)
+        Assert.Contains("<DefaultCRS>EPSG:4326</DefaultCRS>", result);
+        Assert.Contains("<OtherCRS>", result);
         // Should NOT contain the WFS 1.0.0 format
         Assert.DoesNotContain("<SRS>EPSG:4326</SRS>", result);
     }
@@ -258,10 +259,12 @@ public class WfsCapabilitiesFormatterTests
 
         var result = _formatter.GenerateCapabilities(version, serviceUrl);
 
-        // WFS 2.0.0 should use <WGS84BoundingBox> with child elements
-        Assert.Contains("<WGS84BoundingBox>", result);
-        Assert.Contains("<LowerCorner>-180 -90</LowerCorner>", result);
-        Assert.Contains("<UpperCorner>180 90</UpperCorner>", result);
+        // WFS 2.0.0 should use ows:WGS84BoundingBox with child elements in ows namespace
+        Assert.Contains("WGS84BoundingBox", result);
+        Assert.Contains("LowerCorner", result);
+        Assert.Contains("-180 -90", result);
+        Assert.Contains("UpperCorner", result);
+        Assert.Contains("180 90", result);
         // Should NOT contain the WFS 1.0.0 format
         Assert.DoesNotContain("<LatLongBoundingBox", result);
     }

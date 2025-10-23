@@ -47,9 +47,11 @@ public class WfsFeatureFormatterTests
     [Fact]
     public void FormatAsGml_ShouldIncludeNumberOfFeatures()
     {
+        // Default version is 2.0.0 which uses numberMatched and numberReturned
         var result = _formatter.FormatAsGml(_sampleCollection);
 
-        Assert.Contains("numberOfFeatures=\"1\"", result);
+        Assert.Contains("numberMatched=\"1\"", result);
+        Assert.Contains("numberReturned=\"1\"", result);
     }
 
     [Fact]
