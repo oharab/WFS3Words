@@ -27,10 +27,13 @@ public class HealthController : ControllerBase
     [HttpGet]
     public async Task<IActionResult> CheckHealth()
     {
+        _logger.LogDebug("Health check requested");
+
         var isHealthy = await _what3WordsClient.IsHealthyAsync();
 
         if (isHealthy)
         {
+            _logger.LogInformation("Health check succeeded - service is healthy");
             return Ok(new
             {
                 status = "healthy",

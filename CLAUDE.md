@@ -61,10 +61,14 @@ dotnet test tests/WFS3Words.Tests.Integration/WFS3Words.Tests.Integration.csproj
 # Run tests with detailed output
 dotnet test --logger "console;verbosity=detailed"
 
-# Run specific test
+# Run specific test by name pattern
 dotnet test --filter "FullyQualifiedName~TestMethodName"
 
-# Or use convenience script (runs all tests with detailed output)
+# Run specific test by display name (examples)
+dotnet test --filter "DisplayName~GetCapabilities"
+dotnet test --filter "DisplayName~XSD"
+
+# Or use convenience script (runs unit tests, then integration tests, both with detailed output)
 ./test.sh
 ```
 
@@ -120,6 +124,7 @@ The service converts geographic coordinates to What3Words 3-word addresses throu
 2. **What3Words Conversion:** Converts each coordinate to a 3-word address via What3Words API
 3. **Coordinate Transformation:** Transforms coordinates between different CRS using ProjNet via `ICoordinateTransformationService`
 4. **WFS Response Formatting:** Formats results as GML/XML or GeoJSON using `IWfsFeatureFormatter`
+5. **XSD Validation:** WFS responses are validated against OGC XSD schemas to ensure compliance
 
 Other W3W operations (reverse geocoding from words to coordinates, autosuggest) are out of scope as they don't fit the WFS paradigm, which is designed for querying features by spatial extent.
 
@@ -170,16 +175,25 @@ API keys and settings are stored in `appsettings.json`:
 
 ### Unit Tests (`WFS3Words.Tests.Unit`)
 - Test pure business logic in `WFS3Words.Core`
-- No database, no HTTP calls, no external dependencies
+- **CRITICAL:** No database, no HTTP calls, no external dependencies
 - Mock interfaces for What3Words API client
 - Located in `tests/WFS3Words.Tests.Unit/`
+- Examples: coordinate transformations, grid generation, WFS formatting logic
 
 ### Integration Tests (`WFS3Words.Tests.Integration`)
 - Test full HTTP request/response cycle using `Microsoft.AspNetCore.Mvc.Testing`
 - Use `WebApplicationFactory<T>` to host the API in-memory
 - Test WFS endpoints with real request formats
+- Include XSD validation tests for WFS GetCapabilities and GetFeature responses
 - May use test API key or mock HTTP responses
 - Located in `tests/WFS3Words.Tests.Integration/`
+
+### Test Separation (IMPORTANT)
+**Always maintain strict separation between unit and integration tests:**
+- Pure logic → `WFS3Words.Tests.Unit`
+- HTTP/API/External dependencies → `WFS3Words.Tests.Integration`
+
+This separation allows running fast unit tests during development and slower integration tests during CI/CD.
 
 ### Test Naming Convention
 Follow xUnit `[Fact]` and `[Theory]` patterns with descriptive names:
@@ -258,10 +272,74 @@ Follow standard C# conventions:
 - Prefer `record` types for DTOs and immutable data models
 - Use nullable reference types (`#nullable enable`)
 
+## Logging Configuration
+
+The service includes comprehensive logging for monitoring and debugging:
+
+### Logging Levels
+
+- **Information:** Request start/completion, WFS operations, feature counts, health check results
+- **Debug:** Detailed request/response data, API calls, coordinate generation, response sizes
+- **Warning:** Failed operations, invalid parameters, API connectivity issues
+- **Error:** Exceptions, API failures, processing errors
+
+### Request Logging Middleware
+
+Automatically logs all HTTP requests via `RequestLoggingMiddleware`:
+- Request method, path, query string with unique request ID
+- Request headers (Debug level)
+- POST body content (automatically truncated if > 4000 bytes)
+- Response status code and elapsed time in milliseconds
+
+**Example log output:**
+```
+info: [abc123de] GET /wfs?service=WFS&request=GetFeature&BBOX=-1,51,0,52 - Started
+dbug: [abc123de] Headers: Host=localhost, Accept=application/xml
+info: WFS GetFeature request (version 2.0.0) from 127.0.0.1
+info: GetFeature request: BBOX=[-1,51,0,52], SRS=EPSG:4326, OutputFormat=GML
+dbug: Generated 25 coordinates for BBOX [-1,51,0,52]
+info: Returning 25 features for GetFeature request
+info: [abc123de] GET /wfs?service=WFS&request=GetFeature&BBOX=-1,51,0,52 - Completed with 200 in 1250ms
+```
+
+### Logging Providers
+
+Configured in `Program.cs`:
+- **Console:** All environments
+- **Debug:** All environments (for development debugging)
+- **Windows Event Log:** Production only (IIS deployments)
+
+### Adjusting Log Levels
+
+Edit `appsettings.json` to control verbosity:
+
+```json
+{
+  "Logging": {
+    "LogLevel": {
+      "Default": "Information",
+      "Microsoft.AspNetCore": "Warning",
+      "WFS3Words.Api.Middleware.RequestLoggingMiddleware": "Information",
+      "WFS3Words.Api.Controllers": "Information",
+      "WFS3Words.Core.Services": "Debug"
+    }
+  }
+}
+```
+
+**Recommended settings:**
+- **Development:** `Default: Debug` for detailed diagnostics
+- **Production:** `Default: Information` to reduce log volume
+- **Troubleshooting:** Set specific namespaces to `Debug` or `Trace`
+
+### IIS Event Log
+
+In production on Windows Server, logs are written to Windows Event Log under "Application" source. View using Event Viewer.
+
 ## Important Notes
 
 - **API Key Security:** Always use environment variables or secure vaults in production, never hardcode
-- **Logging:** Use `ILogger<T>` dependency injection for structured logging
+- **Logging:** Use `ILogger<T>` dependency injection for structured logging with named parameters
 - **Error Handling:** Return appropriate WFS exception reports (XML) for WFS 1.0/2.0 or JSON problem details for WFS 3.0
 - **Performance:** Consider caching WFS GetCapabilities responses
 - **CORS:** May need to enable CORS for browser-based WFS clients

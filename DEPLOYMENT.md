@@ -306,9 +306,44 @@ Monitor in Windows Performance Monitor:
 - CPU usage
 
 ### Application Logs
-- Check IIS logs: `C:\inetpub\logs\LogFiles\`
-- Application logs via stdout (if enabled)
-- Windows Event Viewer
+
+The application writes structured logs to multiple locations:
+
+**Windows Event Log (Default in Production):**
+- Source: Application
+- View in Event Viewer → Windows Logs → Application
+- Automatically enabled for IIS deployments
+- Logs request processing, WFS operations, What3Words API calls, errors
+
+**Console/Stdout Logs (Optional):**
+- Enable in `web.config` for troubleshooting: `stdoutLogEnabled="true"`
+- Requires logs folder with write permissions
+- Useful for debugging startup or runtime issues
+
+**IIS Logs:**
+- Location: `C:\inetpub\logs\LogFiles\`
+- Contains HTTP-level request/response data
+
+**Log Levels:**
+- Information: Request completion, operation results
+- Debug: Detailed request/response data, coordinates, API calls
+- Warning: Invalid requests, API failures
+- Error: Exceptions and critical failures
+
+**Adjusting Verbosity:**
+Edit `appsettings.json` in deployment folder:
+```json
+{
+  "Logging": {
+    "LogLevel": {
+      "Default": "Information",
+      "WFS3Words": "Debug"
+    }
+  }
+}
+```
+
+See [CLAUDE.md](CLAUDE.md#logging-configuration) for detailed logging configuration.
 
 ### Health Monitoring
 Set up automated health checks:

@@ -52,9 +52,10 @@ public class WfsController : ControllerBase
         var wfsRequest = _queryParser.Parse(queryDict);
 
         _logger.LogInformation(
-            "WFS request: {Request} version {Version}",
-            wfsRequest.Request,
-            wfsRequest.Version);
+            "WFS {Request} request (version {Version}) from {RemoteIp}",
+            wfsRequest.Request ?? "UNKNOWN",
+            wfsRequest.Version ?? "not specified",
+            Request.HttpContext.Connection.RemoteIpAddress);
 
         return wfsRequest.Request?.ToUpperInvariant() switch
         {
@@ -70,7 +71,11 @@ public class WfsController : ControllerBase
         var version = request.Version ?? "2.0.0";
         var serviceUrl = $"{Request.Scheme}://{Request.Host}{Request.Path}";
 
+        _logger.LogDebug("Generating GetCapabilities response for version {Version}", version);
+
         var xml = _capabilitiesFormatter.GenerateCapabilities(version, serviceUrl);
+
+        _logger.LogDebug("GetCapabilities response generated ({Bytes} bytes)", xml.Length);
 
         return Content(xml, "application/xml");
     }
@@ -78,6 +83,11 @@ public class WfsController : ControllerBase
     private IActionResult HandleDescribeFeatureType(WfsRequest request)
     {
         var version = request.Version ?? "2.0.0";
+
+        _logger.LogDebug(
+            "DescribeFeatureType request: version={Version}, outputFormat={OutputFormat}",
+            version,
+            request.OutputFormat ?? "default");
 
         // Validate outputFormat if provided
         var outputFormat = request.OutputFormat?.ToUpperInvariant();
@@ -89,6 +99,7 @@ public class WfsController : ControllerBase
 
             if (!isSupported)
             {
+                _logger.LogWarning("Unsupported outputFormat requested: {OutputFormat}", request.OutputFormat);
                 return BadRequest(new
                 {
                     error = $"OutputFormat '{request.OutputFormat}' is not supported. Supported formats: XMLSCHEMA, text/xml; subtype=gml/3.1.1, text/xml; subtype=gml/3.2.0"
@@ -105,13 +116,24 @@ public class WfsController : ControllerBase
     {
         if (request.BBox == null)
         {
+            _logger.LogWarning("GetFeature request missing required BBOX parameter");
             return BadRequest(new { error = "BBOX parameter is required for GetFeature requests" });
         }
 
         if (!request.BBox.IsValid())
         {
+            _logger.LogWarning("GetFeature request with invalid BBOX: {BBox}", request.BBox);
             return BadRequest(new { error = "Invalid BBOX parameter" });
         }
+
+        _logger.LogInformation(
+            "GetFeature request: BBOX=[{MinLon},{MinLat},{MaxLon},{MaxLat}], SRS={Srs}, OutputFormat={OutputFormat}",
+            request.BBox.MinLongitude,
+            request.BBox.MinLatitude,
+            request.BBox.MaxLongitude,
+            request.BBox.MaxLatitude,
+            request.SrsName ?? "EPSG:4326",
+            request.OutputFormat ?? "GML");
 
         try
         {
@@ -124,7 +146,13 @@ public class WfsController : ControllerBase
                 gridDensity,
                 maxFeatures).ToList();
 
-            _logger.LogDebug("Generated {Count} coordinates for BBOX {BBox}", coordinates.Count, request.BBox);
+            _logger.LogDebug(
+                "Generated {Count} coordinates for BBOX [{MinLon},{MinLat},{MaxLon},{MaxLat}]",
+                coordinates.Count,
+                request.BBox.MinLongitude,
+                request.BBox.MinLatitude,
+                request.BBox.MaxLongitude,
+                request.BBox.MaxLatitude);
 
             // Fetch What3Words data for each coordinate
             var features = new List<WfsFeature>();

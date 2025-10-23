@@ -1,3 +1,4 @@
+using WFS3Words.Api.Middleware;
 using WFS3Words.Core.Configuration;
 using WFS3Words.Core.Interfaces;
 using WFS3Words.Core.Services;
@@ -72,6 +73,9 @@ if (app.Environment.IsDevelopment())
 
 // For IIS deployment - use forwarded headers
 app.UseForwardedHeaders();
+
+// Add request logging middleware
+app.UseMiddleware<RequestLoggingMiddleware>();
 
 app.UseCors();
 

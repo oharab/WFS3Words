@@ -53,7 +53,11 @@ public class What3WordsClient : IWhat3WordsClient
         {
             var url = $"convert-to-3wa?coordinates={coordinate.Latitude},{coordinate.Longitude}&language={language}";
 
-            _logger.LogDebug("Requesting What3Words for coordinate {Coordinate}", coordinate);
+            _logger.LogDebug(
+                "Requesting What3Words API: GET {Url} for coordinate ({Latitude}, {Longitude})",
+                url,
+                coordinate.Latitude,
+                coordinate.Longitude);
 
             var response = await _httpClient.GetAsync(url, cancellationToken);
 
@@ -78,7 +82,15 @@ public class What3WordsClient : IWhat3WordsClient
                 throw new What3WordsException("Invalid response from What3Words API");
             }
 
-            return MapToLocation(apiResponse, language);
+            var location = MapToLocation(apiResponse, language);
+
+            _logger.LogDebug(
+                "What3Words API response: '{Words}' for coordinate ({Latitude}, {Longitude})",
+                location.Words,
+                coordinate.Latitude,
+                coordinate.Longitude);
+
+            return location;
         }
         catch (HttpRequestException ex)
         {
