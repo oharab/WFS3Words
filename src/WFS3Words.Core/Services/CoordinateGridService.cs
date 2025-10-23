@@ -16,7 +16,8 @@ public class CoordinateGridService : ICoordinateGridService
     {
         if (!bbox.IsValid())
         {
-            throw new ArgumentException("Invalid bounding box", nameof(bbox));
+            throw new ArgumentException("Invalid bounding box - coordinates must be in WGS84 (EPSG:4326). " +
+                "Projected coordinate systems are not currently supported.", nameof(bbox));
         }
 
         if (gridDensity <= 0)

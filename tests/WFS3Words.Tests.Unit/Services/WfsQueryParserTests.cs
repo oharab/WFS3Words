@@ -273,4 +273,166 @@ public class WfsQueryParserTests
 
         Assert.Equal(srsValue, result.SrsName);
     }
+
+    [Fact]
+    public void Parse_ShouldExtractBBoxFromFilter_WithGml2Coordinates()
+    {
+        var filterXml = @"<Filter xmlns=""http://www.opengis.net/ogc"">
+            <BBOX>
+                <PropertyName>geometry</PropertyName>
+                <gml:Box xmlns:gml=""http://www.opengis.net/gml"" srsName=""EPSG:27700"">
+                    <gml:coordinates>313713.85,385205.17 469814.49,483863.37</gml:coordinates>
+                </gml:Box>
+            </BBOX>
+        </Filter>";
+
+        var queryParams = new Dictionary<string, StringValues>
+        {
+            ["filter"] = filterXml
+        };
+
+        var result = _parser.Parse(queryParams);
+
+        Assert.NotNull(result.BBox);
+        Assert.Equal(385205.17, result.BBox.MinLatitude);
+        Assert.Equal(313713.85, result.BBox.MinLongitude);
+        Assert.Equal(483863.37, result.BBox.MaxLatitude);
+        Assert.Equal(469814.49, result.BBox.MaxLongitude);
+    }
+
+    [Fact]
+    public void Parse_ShouldExtractBBoxFromFilter_WithGml3Envelope()
+    {
+        var filterXml = @"<Filter xmlns=""http://www.opengis.net/ogc"">
+            <BBOX>
+                <PropertyName>geometry</PropertyName>
+                <gml:Envelope xmlns:gml=""http://www.opengis.net/gml"" srsName=""EPSG:4326"">
+                    <gml:lowerCorner>-1.0 51.0</gml:lowerCorner>
+                    <gml:upperCorner>0.0 52.0</gml:upperCorner>
+                </gml:Envelope>
+            </BBOX>
+        </Filter>";
+
+        var queryParams = new Dictionary<string, StringValues>
+        {
+            ["filter"] = filterXml
+        };
+
+        var result = _parser.Parse(queryParams);
+
+        Assert.NotNull(result.BBox);
+        Assert.Equal(51.0, result.BBox.MinLatitude);
+        Assert.Equal(-1.0, result.BBox.MinLongitude);
+        Assert.Equal(52.0, result.BBox.MaxLatitude);
+        Assert.Equal(0.0, result.BBox.MaxLongitude);
+    }
+
+    [Fact]
+    public void Parse_ShouldPreferDirectBBox_OverFilterBBox()
+    {
+        var filterXml = @"<Filter xmlns=""http://www.opengis.net/ogc"">
+            <BBOX>
+                <gml:Box xmlns:gml=""http://www.opengis.net/gml"">
+                    <gml:coordinates>0,0 1,1</gml:coordinates>
+                </gml:Box>
+            </BBOX>
+        </Filter>";
+
+        var queryParams = new Dictionary<string, StringValues>
+        {
+            ["bbox"] = "-1,51,0,52",
+            ["filter"] = filterXml
+        };
+
+        var result = _parser.Parse(queryParams);
+
+        Assert.NotNull(result.BBox);
+        // Should use direct BBOX parameter
+        Assert.Equal(51.0, result.BBox.MinLatitude);
+        Assert.Equal(-1.0, result.BBox.MinLongitude);
+    }
+
+    [Fact]
+    public void Parse_ShouldReturnNullBBox_WhenFilterIsInvalidXml()
+    {
+        var queryParams = new Dictionary<string, StringValues>
+        {
+            ["filter"] = "<invalid xml"
+        };
+
+        var result = _parser.Parse(queryParams);
+
+        Assert.Null(result.BBox);
+    }
+
+    [Fact]
+    public void Parse_ShouldReturnNullBBox_WhenFilterHasNoBBoxElement()
+    {
+        var filterXml = @"<Filter xmlns=""http://www.opengis.net/ogc"">
+            <PropertyIsEqualTo>
+                <PropertyName>name</PropertyName>
+                <Literal>test</Literal>
+            </PropertyIsEqualTo>
+        </Filter>";
+
+        var queryParams = new Dictionary<string, StringValues>
+        {
+            ["filter"] = filterXml
+        };
+
+        var result = _parser.Parse(queryParams);
+
+        Assert.Null(result.BBox);
+    }
+
+    [Fact]
+    public void Parse_ShouldHandleFilterWithoutNamespace()
+    {
+        var filterXml = @"<Filter xmlns=""http://www.opengis.net/ogc"">
+            <BBOX>
+                <gml:Box xmlns:gml=""http://www.opengis.net/gml"">
+                    <gml:coordinates>-1,51 0,52</gml:coordinates>
+                </gml:Box>
+            </BBOX>
+        </Filter>";
+
+        var queryParams = new Dictionary<string, StringValues>
+        {
+            ["filter"] = filterXml
+        };
+
+        var result = _parser.Parse(queryParams);
+
+        Assert.NotNull(result.BBox);
+        Assert.Equal(51.0, result.BBox.MinLatitude);
+        Assert.Equal(-1.0, result.BBox.MinLongitude);
+    }
+
+    [Fact]
+    public void Parse_ShouldHandleRealWorldGisClientFilter()
+    {
+        // This is the actual filter from GitHub issue #6
+        // Note: EPSG:27700 (British National Grid) uses meters, not degrees
+        var filterXml = @"<Filter xmlns=""http://www.opengis.net/ogc""><BBOX><PropertyName>geometry</PropertyName><gml:Box xmlns:gml=""http://www.opengis.net/gml"" srsName=""EPSG:27700""><gml:coordinates>313713.8465717831,385205.1723566118 469814.4853875725,483863.37235661177</gml:coordinates></gml:Box></BBOX></Filter>";
+
+        var queryParams = new Dictionary<string, StringValues>
+        {
+            ["request"] = "GetFeature",
+            ["version"] = "1.0.0",
+            ["service"] = "WFS",
+            ["typename"] = "location",
+            ["filter"] = filterXml
+        };
+
+        var result = _parser.Parse(queryParams);
+
+        Assert.NotNull(result.BBox);
+        // Verify the BBOX was extracted correctly (coordinates in meters for EPSG:27700)
+        Assert.InRange(result.BBox.MinLongitude, 313000, 314000);
+        Assert.InRange(result.BBox.MinLatitude, 385000, 386000);
+        Assert.InRange(result.BBox.MaxLongitude, 469000, 470000);
+        Assert.InRange(result.BBox.MaxLatitude, 483000, 484000);
+        // Note: IsValid() will return false for projected coordinates (not lat/lon)
+        // but that's okay - coordinate transformation will handle this
+    }
 }

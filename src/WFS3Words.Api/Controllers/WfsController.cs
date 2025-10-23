@@ -120,11 +120,16 @@ public class WfsController : ControllerBase
             return BadRequest(new { error = "BBOX parameter is required for GetFeature requests" });
         }
 
-        if (!request.BBox.IsValid())
+        // Validate BBOX has proper min/max ordering
+        if (request.BBox.MinLongitude >= request.BBox.MaxLongitude ||
+            request.BBox.MinLatitude >= request.BBox.MaxLatitude)
         {
-            _logger.LogWarning("GetFeature request with invalid BBOX: {BBox}", request.BBox);
-            return BadRequest(new { error = "Invalid BBOX parameter" });
+            _logger.LogWarning("GetFeature request with invalid BBOX (min >= max): {BBox}", request.BBox);
+            return BadRequest(new { error = "Invalid BBOX parameter: minimum values must be less than maximum values" });
         }
+
+        // Note: We don't validate coordinate ranges here because the BBOX might be in a projected CRS
+        // (e.g., EPSG:27700 uses meters, not degrees). Coordinate transformation will handle this.
 
         _logger.LogInformation(
             "GetFeature request: BBOX=[{MinLon},{MinLat},{MaxLon},{MaxLat}], SRS={Srs}, OutputFormat={OutputFormat}",
@@ -137,6 +142,22 @@ public class WfsController : ControllerBase
 
         try
         {
+            // Check if coordinates are in WGS84 range (What3Words only supports WGS84)
+            if (!request.BBox.IsValid())
+            {
+                _logger.LogWarning(
+                    "GetFeature request with non-WGS84 coordinates. CRS transformation not yet supported. BBOX: {BBox}, SRS: {Srs}",
+                    request.BBox,
+                    request.SrsName);
+                return BadRequest(new
+                {
+                    error = "Coordinates must be in WGS84 (EPSG:4326). " +
+                           "The requested CRS is not currently supported. " +
+                           $"Requested SRS: {request.SrsName ?? "not specified"}. " +
+                           "Please provide coordinates in decimal degrees (latitude/longitude)."
+                });
+            }
+
             var maxFeatures = request.MaxFeatures ?? _wfsOptions.MaxFeatures;
             var gridDensity = _wfsOptions.DefaultGridDensity;
 

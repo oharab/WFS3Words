@@ -241,14 +241,46 @@ GET /wfs?service=WFS&version=1.0.0&request=GetFeature&typeName=w3w:location&BBOX
 - `application/gml+xml` (default)
 - `application/json` (GeoJSON)
 
-**Supported Coordinate Reference Systems (via srsName or srs parameter):**
-- `EPSG:4326` - WGS84 (default)
+**GetFeature BBOX Parameter:**
+
+BBOX can be specified in two ways:
+
+1. **Direct parameter** (simple): `BBOX=minx,miny,maxx,maxy`
+   ```
+   /wfs?request=GetFeature&typeName=w3w:location&BBOX=-1,51,0,52
+   ```
+
+2. **OGC Filter XML** (advanced): `filter=<Filter>...</Filter>`
+   ```
+   /wfs?request=GetFeature&typeName=w3w:location&filter=<Filter xmlns="http://www.opengis.net/ogc">
+     <BBOX>
+       <PropertyName>geometry</PropertyName>
+       <gml:Box xmlns:gml="http://www.opengis.net/gml">
+         <gml:coordinates>-1,51 0,52</gml:coordinates>
+       </gml:Box>
+     </BBOX>
+   </Filter>
+   ```
+
+**Supported Filter formats:**
+- GML 2.x: `<gml:Box><gml:coordinates>x1,y1 x2,y2</gml:coordinates></gml:Box>`
+- GML 3.x: `<gml:Envelope><gml:lowerCorner>x1 y1</gml:lowerCorner><gml:upperCorner>x2 y2</gml:upperCorner></gml:Envelope>`
+
+**Coordinate Reference System Support:**
+
+**Currently Supported (WGS84 only):**
+- `EPSG:4326` - WGS84 (decimal degrees latitude/longitude)
+
+**Future Support (planned):**
+Coordinate transformation from projected CRS to WGS84 is planned for:
 - `EPSG:3857` - Web Mercator
 - `EPSG:4258` - ETRS89
 - `EPSG:27700` - British National Grid
 - `EPSG:32630`, `EPSG:32631` - UTM zones
 - `EPSG:2154` - Lambert-93 (France)
 - `EPSG:25832` - ETRS89 / UTM zone 32N
+
+**Important:** Coordinates must currently be provided in WGS84 (EPSG:4326) decimal degrees. Projected coordinate systems are not yet supported. If you provide coordinates in a projected CRS, the service will return an error explaining that only WGS84 is currently supported.
 
 ### WFS 3.0 / OGC API - Features (RESTful)
 ```
